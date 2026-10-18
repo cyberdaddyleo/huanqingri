@@ -1,0 +1,1368 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.5 system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>还清日</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="还清日：免费开源的还债计划工具。录入每笔债，用雪球法或雪崩法算出哪天能还清。数据只存在你自己的浏览器里。">
+<style>
+/* Layout: one centred app column. Phone = single column + fixed bottom tab bar; ≥880px = tabs move into the header and the overview splits into two columns. */
+:root{
+  --bg:#EFF4F1; --surface:#FFFFFF; --surface-2:#E4ECE8; --line:#D2DDD7;
+  --ink:#12211D; --ink-2:#465952; --ink-3:#73847D;
+  --accent:#17765A; --accent-soft:#D8EEE4; --accent-ink:#0F5A44; --on-accent:#FFFFFF;
+  --focus:#C0841D; --focus-soft:#F7EAD1; --focus-ink:#7E5208;
+  --danger:#B4432E; --danger-soft:#F8E1DA; --danger-ink:#8E2F1F;
+  --scrim:rgba(10,20,17,.45); --shadow:0 1px 2px rgba(18,33,29,.06),0 6px 20px rgba(18,33,29,.06);
+  --s-exp:#2a78d6; --s-min:#e87ba4; --s-extra:#eda100; --s-left:#1baf7a;
+  --font-sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Source Han Sans SC",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-display:"Songti SC","STSong","Noto Serif SC","Source Han Serif SC","SimSun",serif;
+  --r:16px; --r-sm:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1412; --surface:#141F1C; --surface-2:#1C2925; --line:#283833;
+    --ink:#E4EEE9; --ink-2:#A7B9B2; --ink-3:#71847D;
+    --accent:#4CBB8D; --accent-soft:#163A2E; --accent-ink:#8FDDB9; --on-accent:#08201A;
+    --focus:#E2A645; --focus-soft:#3A2B12; --focus-ink:#F2C67E;
+    --danger:#E27C65; --danger-soft:#3D1E17; --danger-ink:#F3A894;
+    --scrim:rgba(0,0,0,.6); --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    --s-exp:#3987e5; --s-min:#d55181; --s-extra:#c98500; --s-left:#199e70;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1412; --surface:#141F1C; --surface-2:#1C2925; --line:#283833;
+  --ink:#E4EEE9; --ink-2:#A7B9B2; --ink-3:#71847D;
+  --accent:#4CBB8D; --accent-soft:#163A2E; --accent-ink:#8FDDB9; --on-accent:#08201A;
+  --focus:#E2A645; --focus-soft:#3A2B12; --focus-ink:#F2C67E;
+  --danger:#E27C65; --danger-soft:#3D1E17; --danger-ink:#F3A894;
+  --scrim:rgba(0,0,0,.6); --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  --s-exp:#3987e5; --s-min:#d55181; --s-extra:#c98500; --s-left:#199e70;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3,p{margin:0}
+h1,h2,h3{text-wrap:balance}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--ink-3)}
+.sub{color:var(--ink-2)}
+.small{font-size:13px}
+.tiny{font-size:12px}
+.grow{flex:1 1 auto;min-width:0}
+
+.shell{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px 104px}
+@media (min-width:880px){.shell{padding-block:18px 56px}}
+
+/* header */
+.top{display:flex;align-items:center;gap:16px;padding-block:6px 18px}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.word{font-family:var(--font-display);font-size:27px;font-weight:700;letter-spacing:.08em;line-height:1}
+.word i{font-style:normal;color:var(--accent)}
+.tag{font-size:12px;color:var(--ink-3);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tabs-top{display:none;margin-left:auto;gap:2px;background:var(--surface-2);padding:4px;border-radius:999px}
+@media (min-width:880px){.tabs-top{display:flex}}
+.tabs-top button{border:0;background:transparent;padding:7px 16px;border-radius:999px;color:var(--ink-2);font-size:14px;cursor:pointer}
+.tabs-top button[aria-current="page"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
+.tabs-bottom{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(6,1fr);background:var(--surface);border-top:1px solid var(--line);padding-top:4px;padding-bottom:calc(4px + env(safe-area-inset-bottom,0px));padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+@media (min-width:880px){.tabs-bottom{display:none}}
+.tabs-bottom button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0 4px;color:var(--ink-3);font-size:11px;cursor:pointer;border-radius:10px}
+.tabs-bottom button svg{width:22px;height:22px}
+.tabs-bottom button[aria-current="page"]{color:var(--accent);font-weight:600}
+
+/* building blocks */
+.stack{display:grid;gap:16px}
+.grid2{display:grid;gap:16px}
+@media (min-width:880px){.grid2{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);align-items:start}}
+.cards{display:grid;gap:12px}
+@media (min-width:720px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.card-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.card-h h2{font-size:17px;font-weight:650}
+.card-h .grow + *{flex:0 0 auto}
+.page-h{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.page-h h1{font-size:22px;font-weight:700}
+.lead{font-size:14px;color:var(--ink-2);max-width:62ch}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:var(--r-sm);font-size:14px;cursor:pointer;min-height:40px;line-height:1.2;white-space:nowrap}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--accent-ink);padding-inline:8px}
+.btn.ghost:hover{background:var(--accent-soft)}
+.btn.danger{color:var(--danger-ink);border-color:var(--danger-soft)}
+.btn.armed{background:var(--danger);border-color:var(--danger);color:var(--surface)}
+.btn.sm{min-height:32px;padding:5px 10px;font-size:13px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;line-height:1.4;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
+.chip.focus{background:var(--focus-soft);color:var(--focus-ink)}
+.chip.ok{background:var(--accent-soft);color:var(--accent-ink)}
+.chip.warn{background:var(--danger-soft);color:var(--danger-ink)}
+
+.field{display:grid;gap:6px;min-width:0}
+.field>label,.lbl{font-size:13px;color:var(--ink-2)}
+.field .hint{font-size:12px;color:var(--ink-3)}
+.field .err{font-size:12px;color:var(--danger-ink)}
+input[type="text"],input[type="number"],input[type="date"],select,textarea{width:100%;min-width:0;font-size:16px;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);color:var(--ink)}
+textarea{font-size:13px;font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.45}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.fgrid{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.fgrid .full{grid-column:1/-1}
+.inline{display:flex;gap:8px;align-items:center}
+.inline>*{min-width:0}
+.money-in{position:relative}
+.money-in input{padding-left:28px}
+.money-in::before{content:"¥";position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink-3);font-size:15px;pointer-events:none}
+
+.rows{display:grid}
+.row{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line);min-width:0}
+.row:first-child{border-top:0;padding-top:2px}
+.row .name{font-weight:600;overflow-wrap:anywhere}
+.row .amt{font-weight:650;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px dashed var(--line)}
+.kv:first-child{border-top:0}
+.kv b{font-variant-numeric:tabular-nums}
+
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:var(--focus-soft);color:var(--focus-ink);border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:14px}
+.banner b{font-weight:650}
+.note{background:var(--surface-2);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--ink-2)}
+.warns{display:grid;gap:8px}
+.warn{display:flex;gap:10px;align-items:flex-start;background:var(--danger-soft);color:var(--danger-ink);border-radius:12px;padding:10px 12px;font-size:13px}
+.warn svg{flex:0 0 16px;margin-top:2px}
+
+/* hero */
+.hero{position:relative;overflow:hidden}
+.hero .eyebrow{font-size:13px;color:var(--ink-2)}
+.hero .date{font-size:clamp(40px,10vw,58px);font-weight:700;letter-spacing:-.01em;line-height:1.08;margin:6px 0 4px}
+.hero .date small{font-size:.42em;font-weight:600;color:var(--ink-2);margin-left:6px;letter-spacing:0}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.stat{background:var(--surface-2);border-radius:12px;padding:10px 12px;min-width:0}
+.stat .k{font-size:12px;color:var(--ink-3)}
+.stat .v{font-size:17px;font-weight:650;overflow-wrap:anywhere}
+.shore{margin-top:18px}
+.shore-top{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3);margin-bottom:6px}
+.track{position:relative;height:10px;border-radius:999px;background:var(--surface-2)}
+.track .fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--accent);min-width:10px}
+.track .land{position:absolute;right:-2px;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+
+/* debt cards */
+.debt{display:grid;gap:10px}
+.debt-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.debt-top .name{font-size:16px;font-weight:650;overflow-wrap:anywhere}
+.debt-bal{font-size:26px;font-weight:700;line-height:1.1}
+.debt-meta{display:flex;gap:4px 14px;flex-wrap:wrap;font-size:13px;color:var(--ink-2)}
+.mini{height:6px;border-radius:999px;background:var(--surface-2);position:relative;overflow:hidden}
+.mini i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:999px}
+.debt.cleared{opacity:.8}
+
+/* segmented */
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;background:var(--surface-2);padding:4px;border-radius:12px}
+.seg button{border:0;background:transparent;padding:9px 6px;border-radius:9px;cursor:pointer;color:var(--ink-2);font-size:14px;line-height:1.25}
+.seg button small{display:block;font-size:11px;color:var(--ink-3)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:650;box-shadow:var(--shadow)}
+
+/* tables */
+.tbl-wrap{overflow-x:auto;margin-inline:-4px;padding-inline:4px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:9px 8px;border-top:1px solid var(--line);white-space:nowrap}
+th{font-size:12px;color:var(--ink-3);font-weight:600;border-top:0}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+tr.current td{background:var(--accent-soft)}
+tr.current td:first-child{border-radius:8px 0 0 8px}
+tr.current td:last-child{border-radius:0 8px 8px 0}
+
+/* timeline */
+.tl{display:grid;gap:10px}
+.tl-row{display:grid;grid-template-columns:minmax(0,7.5em) minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13px}
+.tl-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)}
+.tl-track{position:relative;height:12px}
+.tl-track::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--line)}
+.tl-bar{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:0 4px 4px 0;min-width:4px}
+.tl-bar.focus{background:var(--focus)}
+.tl-val{font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-3);margin-top:10px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:14px;height:8px;border-radius:2px}
+
+/* chart */
+.chart{position:relative;width:100%;touch-action:pan-y}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.c-grid{stroke:var(--line);stroke-width:1}
+.c-axis{stroke:var(--ink-3);stroke-width:1}
+.c-area{fill:var(--accent);fill-opacity:.12}
+.c-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.c-dot{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.c-dot.end{fill:var(--accent)}
+.c-txt{fill:var(--ink-3);font-size:11px;font-family:var(--font-sans);font-variant-numeric:tabular-nums}
+.c-txt.strong{fill:var(--ink);font-weight:600}
+.c-cross{stroke:var(--ink-3);stroke-width:1}
+.c-hit{fill:transparent;cursor:crosshair}
+.tip{position:absolute;z-index:5;pointer-events:none;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:10px;padding:8px 10px;font-size:12px;min-width:132px;max-width:220px}
+.tip .tv{font-size:15px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.tip .tl2{color:var(--ink-3)}
+.tip .tc{color:var(--accent-ink);margin-top:4px}
+.marks{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+
+/* schedule */
+.month{border-top:1px solid var(--line)}
+.month:first-of-type{border-top:0}
+.month summary{display:flex;align-items:center;gap:10px;padding:11px 2px;cursor:pointer;list-style:none;min-width:0}
+.month summary::-webkit-details-marker{display:none}
+.month summary::before{content:"";flex:0 0 auto;width:7px;height:7px;border-right:1.5px solid var(--ink-3);border-bottom:1.5px solid var(--ink-3);transform:rotate(-45deg);transition:transform .15s}
+.month[open] summary::before{transform:rotate(45deg)}
+.m-n{font-weight:650;white-space:nowrap}
+.m-d{color:var(--ink-3);font-size:13px;white-space:nowrap}
+.m-body{padding:0 0 12px 17px;display:grid;gap:2px}
+.m-line{display:flex;gap:10px;align-items:center;font-size:14px;padding:4px 0}
+.m-line .grow{overflow-wrap:anywhere}
+.m-foot{font-size:12px;color:var(--ink-3);padding-top:4px}
+
+/* order list */
+.olist{display:grid;gap:6px;margin-top:12px}
+.oitem{display:flex;align-items:center;gap:10px;background:var(--surface-2);border-radius:10px;padding:6px 6px 6px 12px}
+.oitem .idx{font-weight:700;color:var(--ink-3);width:1.4em;font-variant-numeric:tabular-nums}
+.oitem .grow{overflow-wrap:anywhere}
+
+/* empty */
+.empty{text-align:center;padding:28px 12px;display:grid;gap:10px;justify-items:center}
+.empty h2{font-size:18px}
+
+/* sheet */
+.sheet-wrap{position:fixed;inset:0;z-index:50;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;padding-top:18px;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));box-shadow:var(--shadow)}
+@media (min-width:640px){.sheet-wrap{align-items:center;padding:24px}.sheet{border-radius:20px;padding:22px}}
+.sheet-h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.sheet-h h2{font-size:18px;font-weight:700}
+.sheet-foot{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;align-items:center}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;box-shadow:var(--shadow);max-width:calc(100% - 32px);text-align:center}
+@media (min-width:880px){.toast{bottom:28px}}
+
+.foot{margin-top:28px;font-size:12px;color:var(--ink-3);display:grid;gap:4px;text-align:center}
+.calc{display:grid;gap:10px}
+.calc .res{display:flex;justify-content:space-between;gap:12px;align-items:baseline;background:var(--accent-soft);color:var(--accent-ink);border-radius:10px;padding:10px 12px}
+.calc .res b{font-size:20px;font-variant-numeric:tabular-nums}
+.rules{display:grid;gap:10px;padding:0;margin:0;list-style:none;counter-reset:r}
+.rules li{display:grid;grid-template-columns:auto 1fr;gap:10px;font-size:14px}
+.rules li::before{counter-increment:r;content:counter(r);font-weight:700;color:var(--accent-ink);background:var(--accent-soft);width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;margin-top:1px}
+.hot{display:grid;gap:8px;margin-top:4px}
+.hot div{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.hot b{font-size:18px;font-variant-numeric:tabular-nums;user-select:all}
+/* budget */
+.alloc{display:flex;gap:2px;height:18px;margin:4px 0 12px}
+.alloc i{display:block;height:100%;min-width:4px}
+.alloc i:first-child{border-radius:4px 0 0 4px}
+.alloc i:last-child{border-radius:0 4px 4px 0}
+.alloc i:only-child{border-radius:4px}
+.lg{display:grid}
+.lg-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px dashed var(--line);font-size:14px}
+.lg-row:first-child{border-top:0}
+.lg-row .sw{width:12px;height:12px;border-radius:3px;flex:0 0 auto}
+.lg-row b{font-variant-numeric:tabular-nums}
+.lg-row .pc{color:var(--ink-3);font-size:12px;min-width:3.4em;text-align:right;font-variant-numeric:tabular-nums}
+.big{font-size:32px;font-weight:700;line-height:1.15;margin:2px 0}
+.meter{height:8px;border-radius:999px;background:var(--accent-soft);position:relative;overflow:hidden;margin-top:6px}
+.meter i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--accent)}
+.meter.over{background:var(--danger-soft)}
+.meter.over i{background:var(--danger)}
+.cat{padding:10px 0;border-top:1px solid var(--line)}
+.cat:first-child{border-top:0;padding-top:2px}
+.cat-top{display:flex;align-items:center;gap:8px;font-size:14px;flex-wrap:wrap}
+.ed{display:grid;grid-template-columns:76px minmax(0,1fr) 40px;gap:6px 8px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.ed:first-of-type{border-top:0;padding-top:2px}
+.ed .n{grid-column:1 / 3;grid-row:1}
+.ed .x{grid-column:3;grid-row:1}
+.ed .k{grid-column:1;grid-row:2;padding-left:8px;padding-right:4px}
+.ed .a{grid-column:2 / 4;grid-row:2;min-width:0}
+.ed.inc{grid-template-columns:minmax(0,1fr) minmax(0,128px) 40px}
+.ed.inc .n{grid-column:1}
+.ed.inc .a{grid-column:2;grid-row:1}
+@media (min-width:560px){
+  .ed{grid-template-columns:minmax(0,1fr) 80px minmax(0,140px) 40px}
+  .ed .n{grid-column:1}
+  .ed .k{grid-column:2;grid-row:1}
+  .ed .a{grid-column:3;grid-row:1}
+  .ed .x{grid-column:4}
+  .ed.inc{grid-template-columns:minmax(0,1fr) minmax(0,140px) 40px}
+  .ed.inc .a{grid-column:2}
+  .ed.inc .x{grid-column:3}
+}
+.ed input,.ed select{padding-top:7px;padding-bottom:7px}
+.ed .x{width:40px;padding:0;font-size:18px;line-height:1}
+.total{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;padding-top:10px;margin-top:4px;border-top:1px solid var(--line);font-size:14px}
+.total b{font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <div class="brand"><span class="word">还清<i>日</i></span><span class="tag">赛博老爸开源 · 数据只存在你的设备里</span></div>
+    <nav class="tabs-top" id="tabsTop" aria-label="主导航"></nav>
+  </header>
+  <main id="view"></main>
+  <footer class="foot">
+    <div>还清日 v1 · 赛博老爸开源 · MIT 许可，随便用、随便改，请勿拿去卖课</div>
+    <div>本工具只做计算，不构成法律或投资建议。利息按「欠款 × 年化 ÷ 12」估算，以账单为准。</div>
+  </footer>
+</div>
+<nav class="tabs-bottom" id="tabsBottom" aria-label="主导航"></nav>
+<div id="sheetRoot"></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+'use strict';
+
+var KEY = 'huanqingri.v1';
+var TYPES = ['信用卡','网贷','消费金融','银行贷款','亲友借款','其他'];
+var STRAT = {
+  snowball: {name:'雪球法', short:'先还金额最小的'},
+  avalanche:{name:'雪崩法', short:'先还利息最高的'},
+  custom:   {name:'自定义', short:'按我排的顺序'}
+};
+var TABS = [
+  {id:'overview', name:'总览', icon:'<path d="M3 17c2.2 0 2.2-1.6 4.5-1.6S9.8 17 12 17s2.2-1.6 4.5-1.6S18.8 17 21 17"/><path d="M3 21c2.2 0 2.2-1.6 4.5-1.6S9.8 21 12 21s2.2-1.6 4.5-1.6S18.8 21 21 21"/><path d="M12 3v9"/><path d="M12 4h6l-2 2.5 2 2.5h-6"/>'},
+  {id:'debts',    name:'我的债', icon:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/>'},
+  {id:'budget',   name:'预算', icon:'<path d="M5 8V6.5A2.5 2.5 0 0 1 7.5 4H17v4"/><rect x="3.5" y="8" width="17" height="12" rx="2.5"/><path d="M15.5 14h2"/>'},
+  {id:'plan',     name:'计划', icon:'<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h3M8 17h6"/>'},
+  {id:'log',      name:'记录', icon:'<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.3l2.4 2.4 4.8-5"/>'},
+  {id:'tools',    name:'工具', icon:'<path d="M5 19l6.5-6.5"/><path d="M14.5 4.5a4 4 0 0 0 5 5l-2.2-2.3-.6-2.1-2.2-.6z"/><path d="M4 6l3 3M6 4l3 3"/>'}
+];
+
+/* ---------- utilities ---------- */
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function uid(){ return Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function r2(x){ return Math.round(x * 100 + (x >= 0 ? 1e-7 : -1e-7)) / 100; }
+function num(v){ if (v === null || v === undefined || v === '') return 0; var n = parseFloat(String(v).replace(/[,，\s¥￥]/g, '')); return isFinite(n) ? n : 0; }
+function money(n, dec){
+  n = n || 0;
+  var d = dec === undefined ? (Math.abs(n - Math.round(n)) > 0.004 ? 2 : 0) : dec;
+  return (n < 0 ? '-' : '') + '¥' + Math.abs(n).toLocaleString('zh-CN', {minimumFractionDigits:d, maximumFractionDigits:d});
+}
+function wan(n){
+  if (Math.abs(n) >= 10000){ var w = Math.round(n / 1000) / 10; return w + '万'; }
+  return String(Math.round(n));
+}
+function pct(n){ var s = (Math.round(n * 10) / 10).toFixed(1); return s.replace(/\.0$/, '') + '%'; }
+function todayStr(){ var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function ymNow(){ var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+function ymAdd(ym, k){ var p = ym.split('-'); var y = +p[0], m = +p[1] - 1 + k; y += Math.floor(m / 12); m = ((m % 12) + 12) % 12; return y + '-' + pad(m + 1); }
+function ymDiff(a, b){ var p = a.split('-'), q = b.split('-'); return (+q[0] - +p[0]) * 12 + (+q[1] - +p[1]); }
+function ymLabel(ym){ var p = ym.split('-'); return p[0] + '年' + (+p[1]) + '月'; }
+function ymAxis(ym){ var p = ym.split('-'); return p[0].slice(2) + '年' + (+p[1]) + '月'; }
+function dateLabel(s){ if (!s) return ''; var p = s.split('-'); return p[0] + '年' + (+p[1]) + '月' + (+p[2]) + '日'; }
+function $(id){ return document.getElementById(id); }
+
+/* ---------- storage (falls back to memory when the browser blocks it) ---------- */
+var memStore = null;
+function readStore(){
+  try { var s = localStorage.getItem(KEY); if (s) return JSON.parse(s); } catch (e) {}
+  return memStore ? JSON.parse(memStore) : null;
+}
+function save(){
+  var s = JSON.stringify(state);
+  memStore = s;
+  try { localStorage.setItem(KEY, s); } catch (e) {}
+}
+
+var CAT_DEFAULT = [['房租 / 房贷','fixed'],['吃饭','daily'],['交通','daily'],['水电、话费、网费','fixed'],['孩子、赡养老人','fixed'],['保险、看病','fixed'],['日用杂项','daily'],['零花钱','daily']];
+function emptyState(){
+  return {v:2, isExample:false, debts:[], extra:500, strategy:'snowball', customOrder:[], snowflakes:[], startYM:ymAdd(ymNow(), 1), log:[], theme:'system',
+    incomes:[{id:uid(), name:'工资', amount:''}],
+    cats:CAT_DEFAULT.map(function(c){ return {id:uid(), name:c[0], kind:c[1], budget:''}; }),
+    spends:[]};
+}
+function exampleState(){
+  var s = emptyState();
+  var prev = ymAdd(ymNow(), -1), cur = ymNow(), today = new Date().getDate();
+  function day(d){ return cur + '-' + pad(Math.min(d, today)); }
+  s.isExample = true;
+  s.extra = 1000;
+  s.debts = [
+    {id:'ex1', name:'信用卡A', type:'信用卡', balance:38000, start:39900, apr:18, min:1900, due:5, note:''},
+    {id:'ex2', name:'信用卡B（分期）', type:'信用卡', balance:12000, start:12000, apr:13, min:1072, due:10, note:'分期手续费换算后约 13%'},
+    {id:'ex3', name:'网贷X', type:'网贷', balance:25000, start:26350, apr:24, min:1350, due:15, note:''},
+    {id:'ex4', name:'亲友借款（老王）', type:'亲友借款', balance:20000, start:20000, apr:0, min:500, due:1, note:'说好每月还 500'}
+  ];
+  s.log = [
+    {id:'exl2', date:prev + '-15', debtId:'ex3', debtName:'网贷X', amount:1350, note:'示例记录'},
+    {id:'exl1', date:prev + '-05', debtId:'ex1', debtName:'信用卡A', amount:1900, note:'示例记录'}
+  ];
+  s.incomes = [{id:'exi1', name:'工资', amount:9500}, {id:'exi2', name:'副业', amount:2000}];
+  s.cats = [
+    {id:'exc1', name:'房租 / 房贷', kind:'fixed', budget:2000}, {id:'exc2', name:'吃饭', kind:'daily', budget:1500},
+    {id:'exc3', name:'交通', kind:'daily', budget:300}, {id:'exc4', name:'水电、话费、网费', kind:'fixed', budget:300},
+    {id:'exc5', name:'孩子、赡养老人', kind:'fixed', budget:800}, {id:'exc6', name:'保险、看病', kind:'fixed', budget:200},
+    {id:'exc7', name:'日用杂项', kind:'daily', budget:200}, {id:'exc8', name:'零花钱', kind:'daily', budget:300}
+  ];
+  var sp = [[1,'exc1',2000,'房租'],[1,'exc2',36,''],[2,'exc2',42,''],[3,'exc3',40,'公交卡充值'],[5,'exc4',168,'电费、话费'],[6,'exc2',58,'买菜'],[8,'exc8',45,'奶茶'],[9,'exc2',33,''],[11,'exc7',62,'洗衣液、纸巾'],[12,'exc2',75,'买菜'],[14,'exc3',30,''],[15,'exc5',800,'给家里'],[16,'exc2',48,''],[17,'exc8',60,'朋友聚餐 AA']];
+  s.spends = sp.map(function(x, i){
+    var c = null; s.cats.forEach(function(k){ if (k.id === x[1]) c = k; });
+    return {id:'exs' + i, date:day(x[0]), catId:x[1], catName:c ? c.name : '', amount:x[2], note:x[3]};
+  }).reverse();
+  return s;
+}
+function normalize(s){
+  if (!s || typeof s !== 'object' || !Array.isArray(s.debts)) return null;
+  var e = emptyState();
+  if (!Array.isArray(s.incomes)) s.incomes = num(s.income) > 0 ? [{id:uid(), name:'每月收入', amount:num(s.income)}] : e.incomes;
+  if (!Array.isArray(s.cats)) s.cats = num(s.expense) > 0 ? [{id:uid(), name:'必要开支（合计）', kind:'fixed', budget:num(s.expense)}] : e.cats;
+  delete s.income; delete s.expense;
+  Object.keys(e).forEach(function(k){ if (s[k] === undefined) s[k] = e[k]; });
+  s.v = 2;
+  s.debts = s.debts.filter(function(d){ return d && d.id; }).map(function(d){
+    return {id:String(d.id), name:String(d.name || '未命名'), type:TYPES.indexOf(d.type) >= 0 ? d.type : '其他', balance:Math.max(0, r2(num(d.balance))), start:Math.max(num(d.start), num(d.balance)), apr:Math.max(0, num(d.apr)), min:Math.max(0, num(d.min)), due:d.due ? Math.min(31, Math.max(1, Math.round(num(d.due)))) : '', note:String(d.note || ''), clearedAt:d.clearedAt || ''};
+  });
+  s.incomes = s.incomes.filter(function(x){ return x && typeof x === 'object'; }).map(function(x){ return {id:String(x.id || uid()), name:String(x.name || ''), amount:(x.amount === '' || x.amount == null) ? '' : Math.max(0, r2(num(x.amount)))}; });
+  s.cats = s.cats.filter(function(x){ return x && typeof x === 'object'; }).map(function(c){ return {id:String(c.id || uid()), name:String(c.name || ''), kind:c.kind === 'daily' ? 'daily' : 'fixed', budget:(c.budget === '' || c.budget == null) ? '' : Math.max(0, r2(num(c.budget)))}; });
+  if (!Array.isArray(s.spends)) s.spends = [];
+  s.spends = s.spends.filter(function(x){ return x && /^\d{4}-\d{2}-\d{2}$/.test(String(x.date)); }).map(function(x){ return {id:String(x.id || uid()), date:String(x.date), catId:String(x.catId || ''), catName:String(x.catName || ''), amount:Math.max(0, r2(num(x.amount))), note:String(x.note || '')}; });
+  if (!/^\d{4}-\d{2}$/.test(s.startYM)) s.startYM = e.startYM;
+  if (!STRAT[s.strategy]) s.strategy = 'snowball';
+  if (!Array.isArray(s.customOrder)) s.customOrder = [];
+  if (!Array.isArray(s.snowflakes)) s.snowflakes = [];
+  if (!Array.isArray(s.log)) s.log = [];
+  return s;
+}
+
+var state = normalize(readStore()) || exampleState();
+var ui = {tab:'overview', showAll:false, showAllSpends:false, sheet:null, logPrefill:null, spendCat:null};
+var originalTheme = document.documentElement.getAttribute('data-theme');
+
+/* ---------- plan engine ---------- */
+function activeDebts(){ return state.debts.filter(function(d){ return d.balance > 0.005; }); }
+function orderFor(strat){
+  var list = activeDebts().map(function(d){ return {d:d, i:state.debts.indexOf(d)}; });
+  if (strat === 'avalanche'){
+    list.sort(function(a, b){ return (b.d.apr - a.d.apr) || (a.i - b.i); });
+  } else if (strat === 'custom'){
+    var co = state.customOrder || [];
+    list.sort(function(a, b){
+      var x = co.indexOf(a.d.id), y = co.indexOf(b.d.id);
+      if (x < 0) x = 1e6 + a.i;
+      if (y < 0) y = 1e6 + b.i;
+      return x - y;
+    });
+  } else {
+    list.sort(function(a, b){ return (a.d.balance - b.d.balance) || (a.i - b.i); });
+  }
+  return list.map(function(x){ return x.d; });
+}
+function simulate(strat, extraOverride){
+  var MAX = 360;
+  var order = orderFor(strat);
+  var extra = extraOverride !== undefined ? extraOverride : Math.max(0, num(state.extra));
+  var snow = {};
+  (state.snowflakes || []).forEach(function(s){
+    var k = ymDiff(state.startYM, s.ym) + 1;
+    if (k >= 1) snow[k] = (snow[k] || 0) + Math.max(0, num(s.amount));
+  });
+  var ds = order.map(function(d){ return {id:d.id, bal:r2(d.balance), rate:Math.max(0, num(d.apr)) / 100, min:Math.max(0, num(d.min)), it:0}; });
+  var minTotal = 0, startTotal = 0;
+  ds.forEach(function(d){ minTotal += d.min; startTotal += d.bal; });
+  var base = minTotal + extra;
+  var months = [], payoff = {}, intBy = {}, totalInt = 0;
+  ds.forEach(function(d){ intBy[d.id] = 0; });
+  for (var t = 1; t <= MAX; t++){
+    var any = false, i, d;
+    for (i = 0; i < ds.length; i++){ if (ds[i].bal > 0.005){ any = true; break; } }
+    if (!any) break;
+    var budget = base + (snow[t] || 0);
+    var owed = [], mins = [], sumMin = 0;
+    for (i = 0; i < ds.length; i++){
+      d = ds[i];
+      d.it = d.bal > 0.005 ? r2(d.bal * d.rate / 12) : 0;
+      owed[i] = r2(d.bal + d.it);
+      mins[i] = Math.min(d.min, owed[i]);
+      sumMin += mins[i];
+    }
+    var left = Math.max(0, r2(budget - sumMin));
+    var focus = null, pays = {}, paid = 0, cleared = [], total = 0;
+    for (i = 0; i < ds.length; i++){
+      d = ds[i];
+      var e = r2(Math.max(0, Math.min(r2(owed[i] - mins[i]), left)));
+      left = r2(left - e);
+      if (e > 0.005 && focus === null) focus = d.id;
+      var p = r2(mins[i] + e);
+      pays[d.id] = p;
+      paid += p;
+      intBy[d.id] += d.it;
+      totalInt += d.it;
+      var nb = r2(Math.max(0, owed[i] - p));
+      if (d.bal > 0.005 && nb <= 0.01){ payoff[d.id] = t; cleared.push(d.id); nb = 0; }
+      d.bal = nb;
+      total += nb;
+    }
+    months.push({t:t, ym:ymAdd(state.startYM, t - 1), pays:pays, focus:focus, paid:r2(paid), total:r2(total), cleared:cleared, snow:snow[t] || 0});
+  }
+  var done = ds.every(function(x){ return x.bal <= 0.01; });
+  var first = null;
+  Object.keys(payoff).forEach(function(k){ if (first === null || payoff[k] < first) first = payoff[k]; });
+  Object.keys(intBy).forEach(function(k){ intBy[k] = r2(intBy[k]); });
+  return {strat:strat, order:order, months:months, payoff:payoff, intBy:intBy, totalInt:r2(totalInt), done:done, n:done ? months.length : null, first:first, startTotal:r2(startTotal), minTotal:r2(minTotal), extra:extra, base:r2(base)};
+}
+function debtById(id){ for (var i = 0; i < state.debts.length; i++){ if (state.debts[i].id === id) return state.debts[i]; } return null; }
+function nameOf(id){ var d = debtById(id); return d ? d.name : '已删除'; }
+function payoffYM(sim, id){ var m = sim.payoff[id]; return m ? ymAdd(state.startYM, m - 1) : null; }
+function endLabel(sim){ return sim.n === null ? '超过 30 年' : (sim.n === 0 ? '—' : ymLabel(ymAdd(state.startYM, sim.n - 1))); }
+
+function debtWarnings(d){
+  var w = [];
+  var mi = d.balance * d.apr / 100 / 12;
+  if (d.balance > 0.005 && d.apr > 0 && d.min < mi - 0.005) w.push('每月最低还款比利息还少（每月利息约 ' + money(mi, 0) + '），这笔会越滚越多。先去跟对方协商降低利息或重新分期。');
+  if (d.type === '亲友借款' && d.apr > 12) w.push('民间借贷超过一年期 LPR 4 倍（现在约 12%）的利息，法院不支持。');
+  else if (d.type !== '亲友借款' && d.type !== '其他' && d.apr > 24) w.push('年化超过 24%。持牌机构的个人贷款，利息加各种费用的年化不能超过 24%，可以打 12378 投诉。');
+  return w;
+}
+
+/* ---------- small renderers ---------- */
+var IC_WARN = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.01"/></svg>';
+function chip(text, cls){ return '<span class="chip' + (cls ? ' ' + cls : '') + '">' + esc(text) + '</span>'; }
+function warnBox(text){ return '<div class="warn">' + IC_WARN + '<div>' + esc(text) + '</div></div>'; }
+function moneyInput(id, value, attrs){ return '<div class="money-in"><input type="number" inputmode="decimal" id="' + id + '" value="' + esc(value) + '" ' + (attrs || '') + '></div>'; }
+
+function renderTabs(){
+  var top = '', bottom = '';
+  TABS.forEach(function(t){
+    var cur = ui.tab === t.id ? ' aria-current="page"' : '';
+    top += '<button type="button" data-act="tab" data-tab="' + t.id + '"' + cur + '>' + t.name + '</button>';
+    bottom += '<button type="button" data-act="tab" data-tab="' + t.id + '"' + cur + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + t.icon + '</svg>' + t.name + '</button>';
+  });
+  $('tabsTop').innerHTML = top;
+  $('tabsBottom').innerHTML = bottom;
+}
+
+function exampleBanner(){
+  if (!state.isExample) return '';
+  return '<div class="banner"><div class="grow">现在显示的是<b>示例数据</b>，看懂了就清空，换成你自己的债。</div><button type="button" class="btn sm" data-act="clear-example">清空示例，填我自己的</button></div>';
+}
+
+/* ---------- budget ---------- */
+function incomeTotal(){ var t = 0; state.incomes.forEach(function(x){ t += num(x.amount); }); return r2(t); }
+function expenseTotal(kind){ var t = 0; state.cats.forEach(function(c){ if (!kind || c.kind === kind) t += num(c.budget); }); return r2(t); }
+function minTotalNow(){ var t = 0; activeDebts().forEach(function(d){ t += d.min; }); return r2(t); }
+function hasBudget(){ return incomeTotal() > 0 || expenseTotal() > 0; }
+function daysInMonth(ym){ var p = ym.split('-'); return new Date(+p[0], +p[1], 0).getDate(); }
+function catById(id){ for (var i = 0; i < state.cats.length; i++){ if (state.cats[i].id === id) return state.cats[i]; } return null; }
+function spentMap(ym){ var m = {}; state.spends.forEach(function(x){ if (x.date.slice(0, 7) === ym) m[x.catId] = r2((m[x.catId] || 0) + x.amount); }); return m; }
+function dailyStatus(){
+  var ym = ymNow(), sp = spentMap(ym), budget = 0, spent = 0;
+  state.cats.forEach(function(c){ if (c.kind === 'daily'){ budget += num(c.budget); spent += sp[c.id] || 0; } });
+  var dim = daysInMonth(ym), daysLeft = dim - new Date().getDate() + 1, left = r2(budget - spent);
+  return {budget:r2(budget), spent:r2(spent), left:left, daysLeft:daysLeft, perDay:left > 0 ? left / daysLeft : 0, perDayPlan:budget / dim};
+}
+function moneyPlan(){
+  var inc = incomeTotal(), exp = expenseTotal(), mn = minTotalNow(), ex = Math.max(0, num(state.extra));
+  return {inc:inc, exp:exp, mn:mn, ex:ex, need:r2(exp + mn), spare:r2(inc - exp - mn), left:r2(inc - exp - mn - ex)};
+}
+function allocBlock(mp){
+  var segs = [
+    {k:'必要开支', v:mp.exp, c:'var(--s-exp)'},
+    {k:'最低还款', v:mp.mn, c:'var(--s-min)'},
+    {k:'加速钱（多还）', v:mp.ex, c:'var(--s-extra)'}
+  ];
+  if (mp.left >= 0) segs.push({k:'结余（攒应急钱）', v:mp.left, c:'var(--s-left)'});
+  else segs.push({k:'缺口（收入不够）', v:-mp.left, c:'var(--danger)'});
+  var total = 0;
+  segs.forEach(function(x){ total += x.v; });
+  var bar = '<div class="alloc" role="img" aria-label="每月收入 ' + money(mp.inc, 0) + ' 怎么分">';
+  var lg = '<div class="lg">';
+  segs.forEach(function(x){
+    if (total > 0 && x.v > 0) bar += '<i style="flex:' + (x.v / total).toFixed(4) + ' 1 0;background:' + x.c + '" title="' + x.k + ' ' + money(x.v, 0) + '"></i>';
+    lg += '<div class="lg-row"><span class="sw" style="background:' + x.c + '"></span><span class="grow">' + x.k + '</span><b>' + money(x.v, 0) + '</b><span class="pc">' + (mp.inc > 0 ? pct(x.v / mp.inc * 100) : '') + '</span></div>';
+  });
+  return bar + '</div>' + lg + '</div>';
+}
+function moneyCard(){
+  if (!hasBudget()) return '<section class="card"><div class="card-h"><h2 class="grow">钱够不够</h2></div><p class="small sub">填上每月收入和开支，算出每个月至少要赚多少、日常每天能花多少。</p><div class="btn-row" style="margin-top:10px"><button type="button" class="btn" data-act="tab" data-tab="budget">去填收入和开支</button></div></section>';
+  var mp = moneyPlan(), ds = dailyStatus();
+  var daily = ds.budget > 0 ? (ds.left >= 0 ? '日常开支这个月还能花 <b class="num">' + money(ds.left, 0) + '</b>，剩 ' + ds.daysLeft + ' 天，平均每天 <b class="num">' + money(ds.perDay, 0) + '</b>。' : '日常开支这个月已经超了 <b class="num">' + money(-ds.left, 0) + '</b>，剩下几天只花必须的。') : '';
+  return '<section class="card"><div class="card-h"><h2 class="grow">每月的钱怎么分</h2>' + chip('收入 ' + money(mp.inc, 0)) + '</div>' + allocBlock(mp) +
+    (daily ? '<div class="note" style="margin-top:12px">' + daily + '</div>' : '') +
+    '<div class="btn-row" style="margin-top:10px"><button type="button" class="btn sm primary" data-act="quick-spend">记一笔开销</button><button type="button" class="btn sm" data-act="tab" data-tab="budget">看预算</button></div></section>';
+}
+function viewBudget(){
+  var mp = moneyPlan(), ds = dailyStatus(), ym = ymNow(), sp = spentMap(ym);
+  var html = exampleBanner() + '<div class="page-h"><div class="grow"><h1>预算</h1><p class="small muted">钱一到手先分好：活命钱、必还钱、加速钱，剩下的攒成应急钱。</p></div></div>';
+
+  var status;
+  if (mp.inc <= 0) status = '<p class="small muted" style="margin-top:10px">先填上每月收入，看看钱够不够分。</p><div class="btn-row" style="margin-top:8px"><button type="button" class="btn sm" data-act="goto" data-to="sec-income">去填收入</button></div>';
+  else if (mp.spare < 0) status = '<div class="warns" style="margin-top:10px">' + warnBox('收入付完开支，不够付所有最低还款，每月差 ' + money(-mp.spare, 0) + '。先停掉一切新借款，砍掉能砍的开支，再去跟银行和平台协商降低月供。') + '</div>';
+  else if (mp.left < 0) status = '<div class="warns" style="margin-top:10px">' + warnBox('加速钱定多了，比能拿出来的多 ' + money(-mp.left, 0) + '，月底会不够用。去「计划」页调低。') + '</div>';
+  else status = '<p class="small sub" style="margin-top:10px">每月能留 <b>' + money(mp.left, 0) + '</b> 攒应急钱。先攒够一个月开支（' + money(mp.exp, 0) + '），免得一有意外又去借。</p>';
+  var alloc = '<section class="card"><div class="card-h"><h2 class="grow">每月的钱怎么分</h2>' + chip('收入 ' + money(mp.inc, 0)) + '</div>' + allocBlock(mp) +
+    '<div class="kv" style="margin-top:4px;border-top:1px solid var(--line)"><span class="sub">每个月至少要赚（开支＋最低还款）</span><b>' + money(mp.need, 0) + '</b></div>' + status +
+    (mp.inc > 0 ? '<div class="btn-row" style="margin-top:10px"><button type="button" class="btn sm" data-act="tab" data-tab="plan">去调整加速钱</button></div>' : '') + '</section>';
+
+  var catOpts = state.cats.map(function(c){ return '<option value="' + c.id + '"' + (ui.spendCat === c.id ? ' selected' : '') + '>' + esc(c.name || '未命名') + '</option>'; }).join('');
+  var meters = '';
+  state.cats.forEach(function(c){
+    var b = num(c.budget), x = sp[c.id] || 0;
+    if (b <= 0 && x <= 0) return;
+    var over = x > b + 0.004;
+    var w = b > 0 ? Math.min(100, x / b * 100) : 100;
+    meters += '<div class="cat"><div class="cat-top"><span class="grow">' + esc(c.name || '未命名') + ' <span class="tiny muted">' + (c.kind === 'daily' ? '日常' : '固定') + '</span></span><span class="num small">' + money(x) + ' / ' + money(b, 0) + '</span>' + (over ? chip('超了 ' + money(x - b, 0), 'warn') : '') + '</div>' +
+      '<div class="meter' + (over ? ' over' : '') + '" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(w) + '" aria-label="' + esc(c.name) + ' 本月已花"><i style="width:' + w.toFixed(1) + '%"></i></div></div>';
+  });
+  var headline = ds.budget > 0 ?
+    (ds.left >= 0 ?
+      '<div class="tiny muted">日常开支这个月还能花</div><div class="big num">' + money(ds.left, 0) + '</div><div class="small sub">还剩 ' + ds.daysLeft + ' 天，平均每天 <b>' + money(ds.perDay, 0) + '</b>（计划是每天 ' + money(ds.perDayPlan, 0) + '）</div>' :
+      '<div class="tiny muted">日常开支这个月已经超了</div><div class="big num" style="color:var(--danger-ink)">' + money(-ds.left, 0) + '</div><div class="small sub">剩下 ' + ds.daysLeft + ' 天只花必须的。超出的钱会挤掉还款和应急钱。</div>') :
+    '<p class="small muted">给吃饭、交通这些「日常」开支定个月预算，这里就会算出每天能花多少。</p>';
+  var spendCard = '<section class="card" id="sec-spend"><div class="card-h"><h2 class="grow">这个月花了多少</h2>' + chip(ymLabel(ym)) + '</div>' + headline +
+    (state.cats.length ?
+      '<div class="fgrid" style="margin-top:14px"><div class="field"><label for="sp-cat">花在哪</label><select id="sp-cat">' + catOpts + '</select></div>' +
+      '<div class="field"><label for="sp-amt">花了多少</label>' + moneyInput('sp-amt', '', 'min="0" step="0.01" placeholder="0"') + '</div>' +
+      '<div class="field"><label for="sp-date">哪天</label><input type="date" id="sp-date" value="' + todayStr() + '"></div>' +
+      '<div class="field"><label for="sp-note">备注（可不填）</label><input type="text" id="sp-note" maxlength="30" placeholder="比如：买菜"></div></div>' +
+      '<div class="err" id="sp-err" hidden></div><div class="btn-row" style="margin-top:10px"><button type="button" class="btn primary" data-act="add-spend">记一笔开销</button></div>' :
+      '<p class="small muted" style="margin-top:10px">先在「每月开支规划」里加几项开支。</p>') +
+    (meters ? '<div style="margin-top:16px">' + meters + '</div>' : '') + '</section>';
+
+  var rec = '', n = 0, shown = 0;
+  state.spends.forEach(function(x){
+    if (x.date.slice(0, 7) !== ym) return;
+    n++;
+    if (!ui.showAllSpends && shown >= 6) return;
+    shown++;
+    var c = catById(x.catId);
+    rec += '<div class="row"><div class="grow"><div class="name">' + esc(c ? (c.name || '未命名') : (x.catName || '已删除的开支项')) + '</div><div class="tiny muted">' + dateLabel(x.date) + (x.note ? ' · ' + esc(x.note) : '') + '</div></div><div class="amt">' + money(x.amount) + '</div><button type="button" class="btn sm danger" data-act="del-spend" data-id="' + x.id + '">删除</button></div>';
+  });
+  var older = state.spends.length - n;
+  var recCard = '<section class="card"><div class="card-h"><h2 class="grow">这个月的开销记录</h2>' + chip(n + ' 笔') + '</div>' +
+    (rec ? '<div class="rows">' + rec + '</div>' : '<p class="small muted">还没有记录。每花一笔就顺手记下，月底就知道钱去哪了。</p>') +
+    (n > shown ? '<button type="button" class="btn sm" style="margin-top:10px" data-act="show-spends">显示这个月全部 ' + n + ' 笔</button>' : '') +
+    (older > 0 ? '<p class="tiny muted" style="margin-top:10px">之前的月份还有 ' + older + ' 笔记录，会一起保存在备份里。</p>' : '') + '</section>';
+
+  var inc = '';
+  state.incomes.forEach(function(x){
+    inc += '<div class="ed inc"><input class="n" type="text" id="in-n-' + x.id + '" value="' + esc(x.name) + '" placeholder="比如：工资、副业" maxlength="24" data-coll="incomes" data-id="' + x.id + '" data-field="name" aria-label="收入名称">' +
+      '<div class="a money-in"><input type="number" inputmode="decimal" id="in-a-' + x.id + '" value="' + esc(x.amount) + '" min="0" step="100" placeholder="每月多少" data-coll="incomes" data-id="' + x.id + '" data-field="amount" aria-label="每月金额"></div>' +
+      '<button type="button" class="btn sm danger x" id="del-incomes-' + x.id + '" data-act="del-item" data-coll="incomes" data-id="' + x.id + '" aria-label="删除这项收入" title="删除这项收入">×</button></div>';
+  });
+  var incCard = '<section class="card" id="sec-income"><div class="card-h"><h2 class="grow">收入明细</h2>' + chip('每月 ' + money(mp.inc, 0), 'ok') + '</div>' +
+    (inc || '<p class="small muted">还没有收入项。</p>') +
+    '<div class="btn-row" style="margin-top:8px"><button type="button" class="btn sm" data-act="add-item" data-coll="incomes">＋ 加一项收入</button></div>' +
+    '<p class="tiny muted" style="margin-top:10px">填每月到手的钱（税后）。副业、提成这类不稳定的收入，按最近几个月里最少的那个月填，宁可少算。</p></section>';
+
+  var cats = '';
+  state.cats.forEach(function(c){
+    cats += '<div class="ed"><input class="n" type="text" id="ct-n-' + c.id + '" value="' + esc(c.name) + '" placeholder="开支名称" maxlength="24" data-coll="cats" data-id="' + c.id + '" data-field="name" aria-label="开支名称">' +
+      '<select class="k" id="ct-k-' + c.id + '" data-coll="cats" data-id="' + c.id + '" data-field="kind" aria-label="开支类型"><option value="fixed"' + (c.kind === 'fixed' ? ' selected' : '') + '>固定</option><option value="daily"' + (c.kind === 'daily' ? ' selected' : '') + '>日常</option></select>' +
+      '<div class="a money-in"><input type="number" inputmode="decimal" id="ct-a-' + c.id + '" value="' + esc(c.budget) + '" min="0" step="50" placeholder="每月预算" data-coll="cats" data-id="' + c.id + '" data-field="budget" aria-label="每月预算"></div>' +
+      '<button type="button" class="btn sm danger x" id="del-cats-' + c.id + '" data-act="del-item" data-coll="cats" data-id="' + c.id + '" aria-label="删除这项开支" title="删除这项开支">×</button></div>';
+  });
+  var catCard = '<section class="card" id="sec-cats"><div class="card-h"><h2 class="grow">每月开支规划</h2>' + chip('每月 ' + money(mp.exp, 0)) + '</div>' +
+    '<p class="tiny muted" style="margin:-4px 0 8px">固定：每月金额基本不变，比如房租、话费。日常：每天都在花，比如吃饭、交通、零花，会算进「每天能花多少」。</p>' +
+    (cats || '<p class="small muted">还没有开支项。</p>') +
+    '<div class="total"><span class="sub">固定 <b>' + money(expenseTotal('fixed'), 0) + '</b> · 日常 <b>' + money(expenseTotal('daily'), 0) + '</b></span><span>合计 <b>' + money(mp.exp, 0) + '</b></span></div>' +
+    '<div class="btn-row" style="margin-top:10px"><button type="button" class="btn sm" data-act="add-item" data-coll="cats">＋ 加一项开支</button></div>' +
+    '<div class="note" style="margin-top:12px"><b>先砍这些：</b>外卖、各种会员订阅、烟酒、没必要的网购、换新手机。房租、吃饭、孩子、看病别砍；零花钱留一点，不然坚持不下去。</div></section>';
+
+  return html + '<div class="grid2"><div class="stack">' + alloc + spendCard + recCard + '</div><div class="stack">' + incCard + catCard + '</div></div>';
+}
+
+/* ---------- overview ---------- */
+function viewOverview(){
+  var sim = simulate(state.strategy);
+  var html = exampleBanner();
+  if (!state.debts.length){
+    return html + '<div class="card empty"><h2>先把你的债摊开看看</h2><p class="lead">把每一笔欠款填进来：欠谁的、还剩多少、利息多少、每月最低还多少。填完马上算出你哪天能还清。</p><div class="btn-row"><button type="button" class="btn primary" data-act="add-debt">添加第一笔债</button><button type="button" class="btn" data-act="load-example">先看示例</button></div></div>';
+  }
+  if (!activeDebts().length){
+    return html + '<div class="card empty"><h2>全部还清了</h2><p class="lead">你已经上岸。接下来：攒一笔应急钱，删掉借钱的 App，别再掉回去。逾期记录会在结清 5 年后自动消失，这几年按时还款、正常用卡，信用会慢慢恢复。</p><button type="button" class="btn" data-act="tab" data-tab="debts">看看还清的每一笔</button></div>';
+  }
+  var startSum = 0, curSum = 0;
+  state.debts.forEach(function(d){ startSum += Math.max(d.start, d.balance); curSum += d.balance; });
+  var paidPct = startSum > 0 ? Math.max(0, Math.min(100, (startSum - curSum) / startSum * 100)) : 0;
+
+  var hero = '<section class="card hero" aria-label="还清日">' +
+    '<div class="eyebrow">按<b>' + STRAT[state.strategy].name + '</b>，每月还 ' + money(sim.base) + '，你的还清日是</div>' +
+    '<div class="date">' + esc(endLabel(sim)) + (sim.n ? '<small>还需 ' + sim.n + ' 个月</small>' : '') + '</div>' +
+    '<div class="stats">' +
+      '<div class="stat"><div class="k">还剩</div><div class="v num">' + money(curSum, 0) + '</div></div>' +
+      '<div class="stat"><div class="k">还要付的利息</div><div class="v num">' + money(sim.totalInt, 0) + '</div></div>' +
+      '<div class="stat"><div class="k">还剩几笔</div><div class="v num">' + activeDebts().length + ' 笔</div></div>' +
+    '</div>' +
+    '<div class="shore"><div class="shore-top"><span>已经还了 ' + money(startSum - curSum, 0) + '（' + pct(paidPct) + '）</span><span>岸</span></div>' +
+    '<div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(paidPct) + '" aria-label="还款进度"><div class="fill" style="width:' + paidPct.toFixed(2) + '%"></div><div class="land"></div></div></div>' +
+  '</section>';
+
+  var m1 = sim.months[0];
+  var rows = '';
+  sim.order.forEach(function(d){
+    var p = m1 ? (m1.pays[d.id] || 0) : 0;
+    var isF = m1 && m1.focus === d.id;
+    rows += '<div class="row"><div class="grow"><div class="name">' + esc(d.name) + '</div><div class="tiny muted">' + (d.due ? '每月 ' + d.due + ' 号' : '还款日未填') + (isF ? ' · ' : '') + (isF ? '<span class="chip focus">多还的钱给它</span>' : '') + '</div></div>' +
+      '<div class="amt">' + money(p) + '</div><button type="button" class="btn sm" data-act="log-for" data-id="' + d.id + '" data-amt="' + p + '">记一笔</button></div>';
+  });
+  var thisMonth = '<section class="card"><div class="card-h"><h2 class="grow">第 1 个月怎么还</h2>' + chip(m1 ? ymLabel(m1.ym) : '') + '</div>' +
+    '<div class="rows">' + rows + '</div>' +
+    '<div class="note" style="margin-top:12px">一共还 <b class="num">' + money(m1 ? m1.paid : 0) + '</b> ＝ 所有最低还款 ' + money(sim.minTotal) + ' ＋ 多还 ' + money(m1 ? r2(m1.paid - sim.minTotal) : 0) + (m1 && m1.snow ? '（含一次性多还 ' + money(m1.snow) + '）' : '') + '。多还的钱集中砸向一笔，清掉它再滚到下一笔。</div>' +
+  '</section>';
+
+  var marks = '';
+  sim.months.forEach(function(m){ m.cleared.forEach(function(id){ marks += chip('第 ' + m.t + ' 个月 清掉' + nameOf(id)); }); });
+  var chart = '<section class="card"><div class="card-h"><h2 class="grow">剩余欠款怎么一点点变少</h2></div>' +
+    '<p class="small muted" style="margin:-6px 0 10px">每个月按计划还完之后，还剩多少。圆点是清掉一笔的月份。</p>' +
+    '<div class="chart" id="curve"></div><div class="marks">' + marks + '</div></section>';
+
+  var warns = [];
+  if (sim.n === null) warns.push('照现在的还法，30 年内还不完。先去协商降低利息和月供（SOP 第三步），或者每月多还一点。');
+  state.debts.forEach(function(d){ if (d.balance > 0.005) debtWarnings(d).forEach(function(w){ warns.push(d.name + '：' + w); }); });
+  var mpw = moneyPlan();
+  if (mpw.inc > 0 && mpw.spare < 0) warns.push('收入减去开支，不够付所有最低还款（每月差 ' + money(-mpw.spare, 0) + '）。先停止新借款，再去协商降低月供。');
+  else if (mpw.inc > 0 && mpw.left < 0) warns.push('加速钱比收入能拿出来的多 ' + money(-mpw.left, 0) + '，去「计划」调低，别让月底不够用。');
+  var warnCard = warns.length ? '<section class="card"><div class="card-h"><h2 class="grow">需要注意</h2>' + chip(warns.length + ' 条', 'warn') + '</div><div class="warns">' + warns.map(warnBox).join('') + '</div></section>' : '';
+
+  return html + '<div class="grid2"><div class="stack">' + hero + thisMonth + '</div><div class="stack">' + moneyCard() + chart + warnCard + '</div></div>';
+}
+
+/* ---------- debts ---------- */
+function viewDebts(){
+  var sim = simulate(state.strategy);
+  var act = activeDebts();
+  var cleared = state.debts.filter(function(d){ return d.balance <= 0.005; });
+  var total = 0, minT = 0;
+  act.forEach(function(d){ total += d.balance; minT += d.min; });
+  var html = exampleBanner() + '<div class="page-h"><div class="grow"><h1>我的债</h1><p class="small muted">' + act.length + ' 笔没还完 · 一共还欠 <b class="num">' + money(total, 0) + '</b> · 每月最低还款 <b class="num">' + money(minT) + '</b></p></div><button type="button" class="btn primary" data-act="add-debt">＋ 添加一笔债</button></div>';
+  if (!state.debts.length){
+    return html + '<div class="card empty"><h2>还没有记录</h2><p class="lead">从征信报告、信用卡和各个借钱 App 的账单、亲友借条里，把每一笔都找出来。</p><button type="button" class="btn primary" data-act="add-debt">添加第一笔债</button></div>';
+  }
+  var pos = {};
+  sim.order.forEach(function(d, i){ pos[d.id] = i + 1; });
+  var focusId = sim.months[0] ? sim.months[0].focus : null;
+  html += '<div class="cards">';
+  sim.order.forEach(function(d){
+    var py = payoffYM(sim, d.id);
+    var prog = d.start > 0 ? Math.max(0, Math.min(100, (d.start - d.balance) / d.start * 100)) : 0;
+    var w = debtWarnings(d);
+    html += '<article class="card debt">' +
+      '<div class="debt-top"><span class="name grow">' + esc(d.name) + '</span>' + chip(d.type) + (d.id === focusId ? chip('现在先还它', 'focus') : chip('第 ' + pos[d.id] + ' 个还', '')) + '</div>' +
+      '<div><div class="tiny muted">还欠</div><div class="debt-bal num">' + money(d.balance) + '</div></div>' +
+      '<div class="debt-meta"><span>年化 <b>' + pct(d.apr) + '</b></span><span>每月最低 <b class="num">' + money(d.min) + '</b></span><span>' + (d.due ? '每月 ' + d.due + ' 号' : '还款日未填') + '</span></div>' +
+      '<div><div class="mini" aria-hidden="true"><i style="width:' + prog.toFixed(1) + '%"></i></div><div class="tiny muted" style="margin-top:4px">已还 ' + pct(prog) + ' · ' + (py ? '按计划 <b>' + ymLabel(py) + '</b>（第 ' + sim.payoff[d.id] + ' 个月）还清' : '30 年内还不完') + '</div></div>' +
+      (d.note ? '<div class="tiny sub">备注：' + esc(d.note) + '</div>' : '') +
+      (w.length ? '<div class="warns">' + w.map(warnBox).join('') + '</div>' : '') +
+      '<div class="btn-row"><button type="button" class="btn sm primary" data-act="log-for" data-id="' + d.id + '" data-amt="' + (sim.months[0] ? (sim.months[0].pays[d.id] || 0) : d.min) + '">记一笔还款</button><button type="button" class="btn sm" data-act="edit-debt" data-id="' + d.id + '">修改</button></div>' +
+    '</article>';
+  });
+  html += '</div>';
+  if (cleared.length){
+    html += '<h2 style="font-size:16px;margin:22px 0 10px">已经还清 ' + chip(cleared.length + ' 笔', 'ok') + '</h2><div class="cards">';
+    cleared.forEach(function(d){
+      html += '<article class="card debt cleared"><div class="debt-top"><span class="name grow">' + esc(d.name) + '</span>' + chip('已还清', 'ok') + '</div><div class="tiny muted">原来欠 ' + money(d.start) + (d.clearedAt ? ' · ' + dateLabel(d.clearedAt) + ' 还清' : '') + '</div><div class="btn-row"><button type="button" class="btn sm" data-act="edit-debt" data-id="' + d.id + '">修改</button></div></article>';
+    });
+    html += '</div>';
+  }
+  return html;
+}
+
+/* ---------- plan ---------- */
+function monthOptions(selected, from, count){
+  var o = '';
+  for (var i = 0; i < count; i++){ var ym = ymAdd(from, i); o += '<option value="' + ym + '"' + (ym === selected ? ' selected' : '') + '>' + ymLabel(ym) + '</option>'; }
+  return o;
+}
+function viewPlan(){
+  var sim = simulate(state.strategy);
+  var html = exampleBanner() + '<div class="page-h"><div class="grow"><h1>还款计划</h1><p class="small muted">每月拿多少钱还债、先还哪一笔，都在这里定。</p></div></div>';
+  if (!activeDebts().length){
+    return html + '<div class="card empty"><h2>还没有要还的债</h2><button type="button" class="btn primary" data-act="add-debt">添加一笔债</button></div>';
+  }
+  var plus = simulate(state.strategy, sim.extra + 100);
+  var impact = '';
+  if (sim.n !== null && plus.n !== null){
+    var dm = sim.n - plus.n, di = r2(sim.totalInt - plus.totalInt);
+    impact = '每月再多还 ¥100：' + (dm > 0 ? '早 <b>' + dm + '</b> 个月还清，' : '还清月份不变，') + '少付利息 <b class="num">' + money(di, 0) + '</b>。';
+  } else if (sim.n === null && plus.n !== null){
+    impact = '每月再多还 ¥100，就能在 ' + plus.n + ' 个月内还清。';
+  }
+  var budget = '<section class="card"><div class="card-h"><h2 class="grow">每个月拿多少钱还债</h2></div>' +
+    '<div class="kv"><span class="sub">所有债的最低还款（自动算）</span><b>' + money(sim.minTotal) + '</b></div>' +
+    '<div class="field" style="margin-top:10px"><label for="in-extra">每月在最低还款之外，再多还多少（加速钱）</label>' +
+      '<div class="inline"><button type="button" class="btn" data-act="extra-step" data-step="-100" aria-label="少还 100">−100</button><div class="grow">' + moneyInput('in-extra', state.extra, 'min="0" step="100" data-bind="extra"') + '</div><button type="button" class="btn" data-act="extra-step" data-step="100" aria-label="多还 100">＋100</button></div>' +
+      (impact ? '<div class="hint">' + impact + '</div>' : '') + '</div>' +
+    '<div class="kv" style="margin-top:10px"><span class="sub">每月一共还</span><b>' + money(sim.base) + '</b></div>' +
+    '<div class="field" style="margin-top:10px"><label for="in-start">从哪个月开始算</label><select id="in-start" data-bind="startYM">' + monthOptions(state.startYM, ymAdd(ymNow(), -6), 30) + '</select></div>' +
+  '</section>';
+
+  var mp = moneyPlan();
+  var incomeCard = '<section class="card"><div class="card-h"><h2 class="grow">钱够不够</h2></div>' +
+    (hasBudget() ?
+      '<div class="kv"><span class="sub">每月收入</span><b>' + money(mp.inc, 0) + '</b></div>' +
+      '<div class="kv"><span class="sub">每月开支规划</span><b>' + money(mp.exp, 0) + '</b></div>' +
+      '<div class="kv"><span class="sub">所有最低还款</span><b>' + money(mp.mn) + '</b></div>' +
+      '<div class="kv"><span class="sub">最多能拿出来当加速钱</span><b style="color:' + (mp.spare < 0 ? 'var(--danger-ink)' : 'var(--accent-ink)') + '">' + money(mp.spare, 0) + '</b></div>' +
+      (mp.spare < 0 ? '<div class="warns" style="margin-top:10px">' + warnBox('收入不够付开支和最低还款。先停掉一切新借款，再去跟银行和平台协商降低月供，不要以贷养贷。') + '</div>' :
+        (sim.extra > mp.spare ? '<div class="warns" style="margin-top:10px">' + warnBox('加速钱（' + money(sim.extra, 0) + '）比能拿出来的（' + money(mp.spare, 0) + '）还多，月底会不够用。') + '</div>' :
+        '<p class="small sub" style="margin-top:10px">加速钱定在 ' + money(mp.spare, 0) + ' 以内都行。建议留一点余地，先攒够一个月开支当应急钱。</p>')) :
+      '<p class="small muted">还没填收入和开支。填上之后，这里会告诉你每月最多能拿出多少当加速钱。</p>') +
+    '<div class="btn-row" style="margin-top:10px"><button type="button" class="btn sm" data-act="tab" data-tab="budget">去「预算」改收入和开支</button></div></section>';
+
+  var cmp = ['snowball', 'avalanche'];
+  if (state.strategy === 'custom' || (state.customOrder && state.customOrder.length)) cmp.push('custom');
+  var sims = cmp.map(function(k){ return k === state.strategy ? sim : simulate(k); });
+  var bestInt = null, bestFirst = null;
+  sims.forEach(function(s){ if (bestInt === null || s.totalInt < bestInt) bestInt = s.totalInt; if (s.first !== null && (bestFirst === null || s.first < bestFirst)) bestFirst = s.first; });
+  var trs = '';
+  sims.forEach(function(s){
+    var tags = '';
+    if (s.totalInt === bestInt && sims.length > 1) tags += ' ' + chip('最省利息', 'ok');
+    if (s.first === bestFirst && sims.length > 1) tags += ' ' + chip('最快清掉一笔', 'focus');
+    trs += '<tr class="' + (s.strat === state.strategy ? 'current' : '') + '"><td>' + STRAT[s.strat].name + (s.strat === state.strategy ? '（正在用）' : '') + tags + '</td><td class="r">' + (s.n === null ? '超过30年' : s.n + ' 个月') + '</td><td class="r">' + esc(endLabel(s)) + '</td><td class="r">' + money(s.totalInt, 0) + '</td><td class="r">' + (s.first ? '第 ' + s.first + ' 个月' : '—') + '</td></tr>';
+  });
+  var seg = '<div class="seg" role="group" aria-label="还款办法">';
+  ['snowball', 'avalanche', 'custom'].forEach(function(k){ seg += '<button type="button" data-act="strategy" data-s="' + k + '" aria-pressed="' + (state.strategy === k) + '">' + STRAT[k].name + '<small>' + STRAT[k].short + '</small></button>'; });
+  seg += '</div>';
+  var expl = state.strategy === 'snowball' ? '先把金额最小的那笔清掉，最快看到进展，适合容易泄气的人。' :
+             state.strategy === 'avalanche' ? '先还利息最高的，总共付的利息最少，适合能盯着数字坚持的人。' :
+             '自己排顺序，比如先还已经被催得最紧的、或者亲友的。用箭头调整。';
+  var olist = '';
+  if (state.strategy === 'custom'){
+    olist = '<div class="olist">';
+    sim.order.forEach(function(d, i){
+      olist += '<div class="oitem"><span class="idx">' + (i + 1) + '</span><span class="grow">' + esc(d.name) + ' <span class="tiny muted">' + money(d.balance, 0) + ' · ' + pct(d.apr) + '</span></span>' +
+        '<button type="button" class="btn sm" data-act="move" data-id="' + d.id + '" data-dir="-1" aria-label="往前"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+        '<button type="button" class="btn sm" data-act="move" data-id="' + d.id + '" data-dir="1" aria-label="往后"' + (i === sim.order.length - 1 ? ' disabled' : '') + '>↓</button></div>';
+    });
+    olist += '</div>';
+  }
+  var stratCard = '<section class="card"><div class="card-h"><h2 class="grow">多还的钱，先砸向哪一笔</h2></div>' + seg +
+    '<p class="small sub" style="margin-top:10px">' + expl + '清掉一笔后，它原来的月供自动加到下一笔上。</p>' + olist +
+    '<div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>办法</th><th class="r">用时</th><th class="r">还清日</th><th class="r">总利息</th><th class="r">第一笔清掉</th></tr></thead><tbody>' + trs + '</tbody></table></div>' +
+  '</section>';
+
+  var N = sim.n || 360;
+  var focusId = sim.months[0] ? sim.months[0].focus : null;
+  var tl = '<div class="tl">';
+  sim.order.forEach(function(d){
+    var m = sim.payoff[d.id];
+    var w = m ? (m / N * 100) : 100;
+    tl += '<div class="tl-row" title="' + esc(d.name) + '：' + (m ? '第 ' + m + ' 个月还清' : '30 年内还不完') + '"><span class="tl-name">' + esc(d.name) + '</span><span class="tl-track"><span class="tl-bar' + (d.id === focusId ? ' focus' : '') + '" style="width:' + w.toFixed(2) + '%"></span></span><span class="tl-val">' + (m ? '第 ' + m + ' 个月' : '超过30年') + '</span></div>';
+  });
+  tl += '</div><div class="legend"><span><i style="background:var(--focus)"></i>现在加速还的那一笔</span><span><i style="background:var(--accent)"></i>其他债</span><span>条越短，越早还清</span></div>';
+  var tlCard = '<section class="card"><div class="card-h"><h2 class="grow">每笔债什么时候还清</h2>' + chip(STRAT[state.strategy].name) + '</div>' + tl + '</section>';
+
+  var sf = '';
+  var sfs = (state.snowflakes || []).slice().sort(function(a, b){ return a.ym < b.ym ? -1 : 1; });
+  sfs.forEach(function(s){
+    sf += '<div class="row"><div class="grow"><div class="name">' + esc(s.note || '一次性多还') + '</div><div class="tiny muted">' + ymLabel(s.ym) + '</div></div><div class="amt">' + money(num(s.amount)) + '</div><button type="button" class="btn sm danger" data-act="del-snow" data-id="' + s.id + '">删除</button></div>';
+  });
+  var snowCard = '<section class="card"><div class="card-h"><h2 class="grow">一次性多还</h2>' + chip('年终奖、退税、卖闲置') + '</div>' +
+    (sf ? '<div class="rows" style="margin-bottom:12px">' + sf + '</div>' : '<p class="small muted" style="margin-bottom:12px">还没有。哪个月有一笔额外的钱，加在这里，它会直接砸向当月该加速的那一笔。</p>') +
+    '<div class="fgrid"><div class="field"><label for="sf-ym">哪个月</label><select id="sf-ym">' + monthOptions(ymAdd(state.startYM, 2), state.startYM, 120) + '</select></div>' +
+    '<div class="field"><label for="sf-amt">多还多少</label>' + moneyInput('sf-amt', '', 'min="0" step="100" placeholder="比如 3000"') + '</div>' +
+    '<div class="field full"><label for="sf-note">这笔钱是什么（可不填）</label><input type="text" id="sf-note" maxlength="30" placeholder="比如：年终奖"></div></div>' +
+    '<div class="btn-row" style="margin-top:12px"><button type="button" class="btn" data-act="add-snow">加上这笔</button></div></section>';
+
+  var limit = ui.showAll ? sim.months.length : Math.min(24, sim.months.length);
+  var sched = '';
+  for (var i = 0; i < limit; i++){
+    var m = sim.months[i];
+    var lines = '';
+    sim.order.forEach(function(d){
+      var p = m.pays[d.id] || 0;
+      if (p <= 0.004) return;
+      lines += '<div class="m-line"><span class="grow">' + esc(d.name) + '</span>' + (m.focus === d.id ? chip('加速', 'focus') : '') + '<span class="num">' + money(p) + '</span></div>';
+    });
+    var clr = m.cleared.length ? '<div class="m-line">' + chip('清掉 ' + m.cleared.map(nameOf).join('、'), 'ok') + '</div>' : '';
+    sched += '<details class="month"' + (i === 0 ? ' open' : '') + '><summary><span class="m-n">第 ' + m.t + ' 个月</span><span class="m-d">' + ymLabel(m.ym) + '</span><span class="grow"></span>' + (m.cleared.length ? chip('清掉 ' + m.cleared.length + ' 笔', 'ok') : '') + '<span class="num" style="font-weight:650">' + money(m.paid) + '</span></summary>' +
+      '<div class="m-body">' + lines + (m.snow ? '<div class="m-foot">含一次性多还 ' + money(m.snow) + '</div>' : '') + clr + '<div class="m-foot">还完后还剩 ' + money(m.total) + '</div></div></details>';
+  }
+  var more = sim.months.length > limit ? '<button type="button" class="btn" style="margin-top:12px" data-act="show-all">显示全部 ' + sim.months.length + ' 个月</button>' : '';
+  var schedCard = '<section class="card"><div class="card-h"><h2 class="grow">每月还款表</h2>' + chip('共 ' + (sim.n === null ? '30 年以上' : sim.n + ' 个月')) + '</div><p class="small muted" style="margin:-6px 0 6px">每个月照着还。点开一个月，看每笔该还多少。</p>' + sched + more + '</section>';
+
+  return html + '<div class="grid2"><div class="stack">' + budget + stratCard + tlCard + '</div><div class="stack">' + incomeCard + snowCard + schedCard + '</div></div>';
+}
+
+/* ---------- log ---------- */
+function viewLog(){
+  var act = activeDebts();
+  var html = exampleBanner() + '<div class="page-h"><div class="grow"><h1>还款记录</h1><p class="small muted">每还一笔就记一下，欠款会自动减少。</p></div></div>';
+  var opts = '';
+  var pre = ui.logPrefill || {};
+  act.forEach(function(d){ opts += '<option value="' + d.id + '"' + (pre.id === d.id ? ' selected' : '') + '>' + esc(d.name) + '（还欠 ' + money(d.balance, 0) + '）</option>'; });
+  var form = act.length ? '<section class="card"><div class="card-h"><h2 class="grow">记一笔还款</h2></div>' +
+    '<div class="fgrid"><div class="field full"><label for="lg-debt">还的是哪一笔</label><select id="lg-debt">' + opts + '</select></div>' +
+    '<div class="field"><label for="lg-amt">还了多少</label>' + moneyInput('lg-amt', pre.amt || '', 'min="0" step="0.01" placeholder="0"') + '<div class="err" id="lg-err" hidden></div></div>' +
+    '<div class="field"><label for="lg-date">哪天还的</label><input type="date" id="lg-date" value="' + todayStr() + '"></div>' +
+    '<div class="field full"><label for="lg-note">备注（可不填）</label><input type="text" id="lg-note" maxlength="40" placeholder="比如：协商后第一期"></div></div>' +
+    '<p class="tiny muted" style="margin-top:10px">记下后会从欠款里直接扣掉这笔钱。如果账单上的剩余欠款跟这里不一样，以账单为准，去「我的债」里直接改。</p>' +
+    '<div class="btn-row" style="margin-top:12px"><button type="button" class="btn primary" data-act="save-log">记下来</button></div></section>' :
+    '<section class="card empty"><h2>没有要还的债</h2><p class="lead">先去「我的债」添加，或者你已经全部还清了。</p></section>';
+  var list = '', sum = 0;
+  state.log.forEach(function(l){
+    sum += num(l.amount);
+    list += '<div class="row"><div class="grow"><div class="name">' + esc(l.debtName || nameOf(l.debtId)) + '</div><div class="tiny muted">' + dateLabel(l.date) + (l.note ? ' · ' + esc(l.note) : '') + '</div></div><div class="amt">' + money(num(l.amount)) + '</div><button type="button" class="btn sm danger" data-act="del-log" data-id="' + l.id + '">撤销</button></div>';
+  });
+  var hist = '<section class="card"><div class="card-h"><h2 class="grow">记过的还款</h2>' + chip('累计 ' + money(sum, 0), 'ok') + '</div>' +
+    (list ? '<div class="rows">' + list + '</div><p class="tiny muted" style="margin-top:10px">撤销一条记录，会把这笔钱加回对应的欠款。</p>' : '<p class="small muted">还没有记录。每还一笔就记一下，看着数字往下走，人更能坚持。</p>') + '</section>';
+  return html + '<div class="grid2"><div class="stack">' + form + '</div><div class="stack">' + hist + '</div></div>';
+}
+
+/* ---------- tools ---------- */
+function rateSolve(n, pmt, pv){
+  if (!(n > 0 && pmt > 0 && pv > 0)) return NaN;
+  if (pmt * n < pv - 1e-9) return NaN;
+  if (Math.abs(pmt * n - pv) < 1e-9) return 0;
+  var lo = 0, hi = 1;
+  for (var k = 0; k < 200; k++){
+    var mid = (lo + hi) / 2;
+    var v = pmt * (1 - Math.pow(1 + mid, -n)) / mid;
+    if (v > pv) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+function calcTools(){
+  function setT(id, t){ var el = $(id); if (el) el.textContent = t; }
+  var d = num(($('cv-d') || {}).value);
+  setT('cv-d-r', d > 0 ? pct(d * 365) : '—');
+  var m = num(($('cv-m') || {}).value);
+  setT('cv-m-r', m > 0 ? pct(m * 12) : '—');
+  var P = num(($('cv-i-p') || {}).value), n = Math.round(num(($('cv-i-n') || {}).value)), f = num(($('cv-i-f') || {}).value);
+  if (P > 0 && n > 0 && f >= 0){
+    var pay = P / n + P * f / 100;
+    var r = rateSolve(n, pay, P);
+    setT('cv-i-pay', money(pay, 2));
+    setT('cv-i-fee', money(P * f / 100 * n, 2));
+    setT('cv-i-face', pct(f * 12));
+    setT('cv-i-r', isFinite(r) ? pct(r * 12 * 100) : '—');
+  } else { setT('cv-i-pay', '—'); setT('cv-i-fee', '—'); setT('cv-i-face', '—'); setT('cv-i-r', '—'); }
+  var L = num(($('cv-l-p') || {}).value), ln = Math.round(num(($('cv-l-n') || {}).value)), lp = num(($('cv-l-pay') || {}).value);
+  var lr = rateSolve(ln, lp, L);
+  setT('cv-l-more', (L > 0 && ln > 0 && lp > 0) ? money(lp * ln - L, 2) : '—');
+  setT('cv-l-r', isFinite(lr) ? pct(lr * 12 * 100) : '—');
+  var warn = $('cv-l-w');
+  if (warn) warn.hidden = !(isFinite(lr) && lr * 12 > 0.24);
+}
+function viewTools(){
+  var rules = '<ol class="rules">' +
+    '<li><span><b>不要借钱去做任何「翻身项目」。</b>买课、加盟、囤货、借钱炒股补仓都算。</span></li>' +
+    '<li><span><b>不要以贷养贷。</b>用新网贷还旧网贷，每转一次窟窿大一圈。</span></li>' +
+    '<li><span><b>征信没有「洗白」渠道。</b>说能修复、能洗白的都是骗子。</span></li>' +
+    '<li><span><b>协商自己打电话。</b>不要交钱给「债务优化」「停息挂账」中介。信用卡可以自己申请个性化分期，最长 5 年，但银行可以拒绝。</span></li>' +
+    '<li><span><b>撑不住先找人说。</b>家人、朋友，或者下面的心理援助热线。</span></li></ol>';
+  var hot = '<div class="hot"><div><b>12356</b><span class="small sub">全国心理援助热线</span></div><div><b>12378</b><span class="small sub">国家金融监督管理总局，银行、保险投诉</span></div><div><b>12363</b><span class="small sub">中国人民银行，金融消费者投诉</span></div></div>';
+  var conv = '<section class="card"><div class="card-h"><h2 class="grow">利率换算</h2>' + chip('算出真实年化') + '</div><div class="stack" style="gap:20px">' +
+    '<div class="calc"><div class="lbl"><b>日息</b>（比如「日息万五」就是 0.05）</div><div class="inline"><input type="number" inputmode="decimal" id="cv-d" value="0.05" step="0.01" data-calc="1" aria-label="日利率百分比"><span class="muted">% 每天</span></div><div class="res"><span>年化</span><b id="cv-d-r">—</b></div></div>' +
+    '<div class="calc"><div class="lbl"><b>月息</b></div><div class="inline"><input type="number" inputmode="decimal" id="cv-m" value="1.5" step="0.1" data-calc="1" aria-label="月利率百分比"><span class="muted">% 每月</span></div><div class="res"><span>年化</span><b id="cv-m-r">—</b></div></div>' +
+    '<div class="calc"><div class="lbl"><b>分期手续费</b>（每期按最初的总额收手续费）</div><div class="fgrid">' +
+      '<div class="field"><label for="cv-i-p">分期金额</label>' + moneyInput('cv-i-p', 12000, 'data-calc="1" min="0"') + '</div>' +
+      '<div class="field"><label for="cv-i-n">分几期</label><input type="number" inputmode="numeric" id="cv-i-n" value="12" min="1" data-calc="1"></div>' +
+      '<div class="field full"><label for="cv-i-f">每期手续费率（%）</label><input type="number" inputmode="decimal" id="cv-i-f" value="0.6" step="0.01" min="0" data-calc="1"></div></div>' +
+      '<div class="kv"><span class="sub">每期要还</span><b id="cv-i-pay">—</b></div><div class="kv"><span class="sub">手续费一共</span><b id="cv-i-fee">—</b></div><div class="kv"><span class="sub">表面上的年费率（很多人以为是这个）</span><b id="cv-i-face">—</b></div>' +
+      '<div class="res"><span>真实年化</span><b id="cv-i-r">—</b></div><p class="tiny muted">你欠的钱每月在变少，手续费却一直按最初的总额收，所以真实年化接近表面的两倍。</p></div>' +
+    '<div class="calc"><div class="lbl"><b>只知道到手多少、每期还多少</b>（网贷常见）</div><div class="fgrid">' +
+      '<div class="field"><label for="cv-l-p">实际到手</label>' + moneyInput('cv-l-p', 10000, 'data-calc="1" min="0"') + '</div>' +
+      '<div class="field"><label for="cv-l-n">分几期（按月）</label><input type="number" inputmode="numeric" id="cv-l-n" value="12" min="1" data-calc="1"></div>' +
+      '<div class="field full"><label for="cv-l-pay">每期还多少</label>' + moneyInput('cv-l-pay', 1000, 'data-calc="1" min="0"') + '</div></div>' +
+      '<div class="kv"><span class="sub">一共多还了</span><b id="cv-l-more">—</b></div><div class="res"><span>真实年化</span><b id="cv-l-r">—</b></div>' +
+      '<div class="warn" id="cv-l-w" hidden>' + IC_WARN + '<div>超过 24%。持牌机构的个人贷款可以打 12378 投诉。被提前扣掉的「服务费」不算到手。</div></div></div>' +
+  '</div></section>';
+  var data = JSON.stringify(state, null, 2);
+  var backup = '<section class="card"><div class="card-h"><h2 class="grow">备份和换设备</h2></div>' +
+    '<p class="small sub">数据只存在这台设备的浏览器里，不上传任何服务器。清理浏览器、换手机之前，先备份。</p>' +
+    '<div class="field" style="margin-top:12px"><label for="bk-out">我的备份（复制下来，存到备忘录或发给自己）</label><textarea id="bk-out" rows="5" readonly>' + esc(data) + '</textarea></div>' +
+    '<div class="btn-row" style="margin-top:8px"><button type="button" class="btn" data-act="copy-backup">复制备份</button>' + (window.claude ? '' : '<button type="button" class="btn" data-act="download-backup">下载备份文件</button>') + '</div>' +
+    '<div class="field" style="margin-top:16px"><label for="bk-in">恢复备份：把备份内容粘贴到这里</label><textarea id="bk-in" rows="4" placeholder="粘贴备份内容"></textarea><div class="err" id="bk-err" hidden></div></div>' +
+    '<div class="btn-row" style="margin-top:8px"><button type="button" class="btn" data-act="import-backup">用这份备份覆盖</button><label class="btn" for="bk-file">选择备份文件</label><input type="file" id="bk-file" accept=".json,application/json,text/plain" hidden></div>' +
+    '<div class="btn-row" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)"><button type="button" class="btn" data-act="load-example">载入示例数据</button><button type="button" class="btn danger" data-act="clear-all" data-confirm="1">清空所有数据</button></div>' +
+  '</section>';
+  var theme = '<section class="card"><div class="card-h"><h2 class="grow">外观</h2></div><div class="field"><label for="in-theme">颜色</label><select id="in-theme" data-bind="theme"><option value="system"' + (state.theme === 'system' ? ' selected' : '') + '>跟随系统</option><option value="light"' + (state.theme === 'light' ? ' selected' : '') + '>浅色</option><option value="dark"' + (state.theme === 'dark' ? ' selected' : '') + '>深色</option></select></div></section>';
+  var about = '<section class="card"><div class="card-h"><h2 class="grow">上岸须知</h2></div>' + rules + '<div style="margin-top:14px">' + hot + '</div></section>';
+  return '<div class="page-h"><div class="grow"><h1>工具</h1><p class="small muted">换算利率、备份数据，还有几句一定要记住的话。</p></div></div>' +
+    '<div class="grid2"><div class="stack">' + conv + '</div><div class="stack">' + about + backup + theme + '</div></div>';
+}
+
+/* ---------- debt sheet ---------- */
+function openDebtSheet(id){
+  var d = id ? debtById(id) : null;
+  var v = d || {name:'', type:'信用卡', balance:'', apr:'', min:'', due:'', note:''};
+  var typeOpts = TYPES.map(function(t){ return '<option' + (t === v.type ? ' selected' : '') + '>' + t + '</option>'; }).join('');
+  var dueOpts = '<option value="">不填</option>';
+  for (var i = 1; i <= 31; i++) dueOpts += '<option value="' + i + '"' + (+v.due === i ? ' selected' : '') + '>每月 ' + i + ' 号</option>';
+  var html = '<div class="sheet-wrap" data-act="close-sheet-bg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-title">' +
+    '<div class="sheet-h"><h2 id="sh-title" class="grow">' + (d ? '修改：' + esc(d.name) : '添加一笔债') + '</h2><button type="button" class="btn ghost" data-act="close-sheet">关闭</button></div>' +
+    (state.isExample && !d ? '<div class="banner">列表里还有示例数据。想只算自己的，先关掉这里，点上方「清空示例」。</div>' : '') +
+    '<div class="fgrid">' +
+      '<div class="field full"><label for="f-name">欠谁的</label><input type="text" id="f-name" maxlength="30" value="' + esc(v.name) + '" placeholder="比如：招行信用卡、某某网贷、老王"><div class="err" id="e-name" hidden></div></div>' +
+      '<div class="field"><label for="f-type">类型</label><select id="f-type">' + typeOpts + '</select></div>' +
+      '<div class="field"><label for="f-due">每月几号还</label><select id="f-due">' + dueOpts + '</select></div>' +
+      '<div class="field full"><label for="f-bal">现在还欠多少</label>' + moneyInput('f-bal', v.balance, 'min="0" step="0.01" placeholder="以最新账单为准"') + '<div class="err" id="e-bal" hidden></div></div>' +
+      '<div class="field full"><label for="f-rate">利息</label><div class="inline"><input type="number" inputmode="decimal" id="f-rate" step="0.01" min="0" value="' + esc(v.apr) + '" placeholder="比如 18" data-rate="1"><select id="f-unit" style="width:auto" data-rate="1"><option value="y">% 年化</option><option value="d">% 日息</option><option value="m">% 月息</option></select></div>' +
+        '<div class="hint" id="f-rate-hint">没有利息（比如亲友借款）就填 0。分期手续费要先换算，用「工具」里的分期换算。</div></div>' +
+      '<div class="field full"><label for="f-min">每月最低要还多少</label>' + moneyInput('f-min', v.min, 'min="0" step="0.01" placeholder="账单上的最低还款，或分期每期金额"') + '<div class="err" id="e-min" hidden></div></div>' +
+      '<div class="field full"><label for="f-note">备注（可不填）</label><input type="text" id="f-note" maxlength="40" value="' + esc(v.note) + '"></div>' +
+    '</div>' +
+    '<div class="sheet-foot"><button type="button" class="btn primary" data-act="save-debt" data-id="' + (d ? d.id : '') + '">' + (d ? '保存修改' : '添加') + '</button><button type="button" class="btn" data-act="close-sheet">取消</button>' +
+      (d ? '<span class="grow"></span><button type="button" class="btn danger" data-act="delete-debt" data-id="' + d.id + '" data-confirm="1">删除这笔</button>' : '') + '</div>' +
+  '</div></div>';
+  $('sheetRoot').innerHTML = html;
+  ui.sheet = true;
+  setTimeout(function(){ var f = $('f-name'); if (f && !d) f.focus(); }, 30);
+}
+function closeSheet(){ $('sheetRoot').innerHTML = ''; ui.sheet = null; }
+function rateHint(){
+  var r = num($('f-rate').value), u = $('f-unit').value, h = $('f-rate-hint');
+  if (!h) return;
+  if (u === 'y' || !r){ h.textContent = '没有利息（比如亲友借款）就填 0。分期手续费要先换算，用「工具」里的分期换算。'; return; }
+  h.textContent = '换算成年化：' + pct(u === 'd' ? r * 365 : r * 12);
+}
+function showErr(id, msg){ var e = $(id); if (!e) return; e.textContent = msg || ''; e.hidden = !msg; }
+function saveDebt(id){
+  var name = $('f-name').value.trim();
+  var bal = r2(num($('f-bal').value));
+  var r = num($('f-rate').value), u = $('f-unit').value;
+  var apr = u === 'd' ? r * 365 : (u === 'm' ? r * 12 : r);
+  var min = r2(num($('f-min').value));
+  var ok = true;
+  showErr('e-name', name ? '' : '写一下欠谁的，方便你认出来。'); if (!name) ok = false;
+  var balRaw = $('f-bal').value;
+  if (balRaw === '' || bal < 0){ showErr('e-bal', '填现在还欠多少，以最新账单为准。'); ok = false; } else showErr('e-bal', '');
+  if (min < 0){ showErr('e-min', '最低还款不能是负数。'); ok = false; } else showErr('e-min', '');
+  if (!ok) return;
+  var d = id ? debtById(id) : null;
+  var due = $('f-due').value;
+  if (d){
+    d.name = name; d.type = $('f-type').value; d.apr = r2(apr); d.min = min; d.due = due ? +due : ''; d.note = $('f-note').value.trim();
+    if (bal > d.start) d.start = bal;
+    if (d.balance > 0.005 && bal <= 0.005) d.clearedAt = todayStr();
+    if (bal > 0.005) d.clearedAt = '';
+    d.balance = bal;
+  } else {
+    if (bal <= 0.005){ showErr('e-bal', '新添加的债，欠款要大于 0。'); return; }
+    state.debts.push({id:uid(), name:name, type:$('f-type').value, balance:bal, start:bal, apr:r2(apr), min:min, due:due ? +due : '', note:$('f-note').value.trim(), clearedAt:''});
+  }
+  save(); closeSheet(); render();
+  toast(d ? '已保存' : '已添加「' + name + '」');
+}
+
+/* ---------- toast ---------- */
+var toastTimer = null;
+function toast(msg){
+  var t = $('toast');
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.hidden = true; }, 2600);
+}
+
+/* ---------- chart ---------- */
+function niceStep(raw){
+  var p = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+  var f = raw / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+}
+var curveSim = null;
+function drawCurve(){
+  var el = $('curve');
+  if (!el || !curveSim) return;
+  var sim = curveSim;
+  var pts = [{t:0, ym:null, total:sim.startTotal, cleared:[]}].concat(sim.months);
+  var N = pts.length - 1;
+  if (N < 1){ el.innerHTML = ''; return; }
+  var W = Math.max(280, el.clientWidth || 600), H = W < 520 ? 210 : 250;
+  var L = 44, R = 16, T = 14, B = 30;
+  var pw = W - L - R, ph = H - T - B;
+  var step = niceStep(Math.max(1, sim.startTotal) / 4);
+  var maxV = Math.ceil(sim.startTotal / step) * step || step;
+  function X(i){ return L + i / N * pw; }
+  function Y(v){ return T + ph - v / maxV * ph; }
+  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="剩余欠款从 ' + money(sim.startTotal, 0) + ' 降到 0 的曲线">';
+  for (var v = 0; v <= maxV + 0.5; v += step){
+    var y = Y(v).toFixed(1);
+    s += '<line class="c-grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/>';
+    s += '<text class="c-txt" x="' + (L - 8) + '" y="' + y + '" text-anchor="end" dominant-baseline="middle">' + (v === 0 ? '0' : wan(v)) + '</text>';
+  }
+  var line = '', area = '';
+  pts.forEach(function(p, i){ line += (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.total).toFixed(1); });
+  area = line + 'L' + X(N).toFixed(1) + ' ' + Y(0).toFixed(1) + 'L' + X(0).toFixed(1) + ' ' + Y(0).toFixed(1) + 'Z';
+  s += '<path class="c-area" d="' + area + '"/><path class="c-line" d="' + line + '"/>';
+  var ticks = [0, Math.round(N / 3), Math.round(2 * N / 3), N];
+  var seen = {};
+  ticks.forEach(function(i, k){
+    if (seen[i]) return; seen[i] = 1;
+    var lab = i === 0 ? '现在' : ymAxis(pts[i].ym) + (i === N && sim.done ? ' 上岸' : '');
+    var anchor = k === 0 ? 'start' : (k === ticks.length - 1 ? 'end' : 'middle');
+    s += '<text class="c-txt' + (i === N && sim.done ? ' strong' : '') + '" x="' + X(i).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="' + anchor + '">' + lab + '</text>';
+  });
+  pts.forEach(function(p, i){ if (i > 0 && p.cleared.length) s += '<circle class="c-dot" cx="' + X(i).toFixed(1) + '" cy="' + Y(p.total).toFixed(1) + '" r="4.5"/>'; });
+  s += '<line class="c-cross" id="cx" x1="0" x2="0" y1="' + T + '" y2="' + (T + ph) + '" visibility="hidden"/>';
+  s += '<circle class="c-dot" id="cd" r="5" cx="0" cy="0" visibility="hidden"/>';
+  s += '<rect class="c-hit" id="chit" x="' + L + '" y="0" width="' + pw + '" height="' + (T + ph) + '"/>';
+  s += '</svg><div class="tip" id="ctip" hidden></div>';
+  el.innerHTML = s;
+  var hit = $('chit'), cx = $('cx'), cd = $('cd'), tip = $('ctip');
+  function show(evt){
+    var rect = el.getBoundingClientRect();
+    var px = (evt.clientX - rect.left) * (W / rect.width);
+    var i = Math.max(0, Math.min(N, Math.round((px - L) / pw * N)));
+    var p = pts[i];
+    cx.setAttribute('x1', X(i)); cx.setAttribute('x2', X(i)); cx.setAttribute('visibility', 'visible');
+    cd.setAttribute('cx', X(i)); cd.setAttribute('cy', Y(p.total)); cd.setAttribute('visibility', 'visible');
+    tip.innerHTML = '';
+    var tv = document.createElement('div'); tv.className = 'tv'; tv.textContent = '还剩 ' + money(p.total, 0); tip.appendChild(tv);
+    var tl = document.createElement('div'); tl.className = 'tl2'; tl.textContent = i === 0 ? '现在' : ('第 ' + p.t + ' 个月 · ' + ymLabel(p.ym) + ' · 这月还 ' + money(p.paid, 0)); tip.appendChild(tl);
+    if (p.cleared.length){ var tc = document.createElement('div'); tc.className = 'tc'; tc.textContent = '清掉 ' + p.cleared.map(nameOf).join('、'); tip.appendChild(tc); }
+    tip.hidden = false;
+    var scale = rect.width / W;
+    var left = X(i) * scale + 12;
+    if (left + tip.offsetWidth > rect.width) left = X(i) * scale - tip.offsetWidth - 12;
+    tip.style.left = Math.max(0, left) + 'px';
+    tip.style.top = Math.max(0, Y(p.total) * scale - tip.offsetHeight - 10) + 'px';
+  }
+  function hide(){ cx.setAttribute('visibility', 'hidden'); cd.setAttribute('visibility', 'hidden'); tip.hidden = true; }
+  hit.addEventListener('pointermove', show);
+  hit.addEventListener('pointerdown', show);
+  hit.addEventListener('pointerleave', hide);
+}
+var ro = null;
+function watchCurve(){
+  var el = $('curve');
+  if (!el) return;
+  drawCurve();
+  if (window.ResizeObserver){
+    if (ro) ro.disconnect();
+    var lastW = el.clientWidth;
+    ro = new ResizeObserver(function(){ if (Math.abs(el.clientWidth - lastW) > 4){ lastW = el.clientWidth; drawCurve(); } });
+    ro.observe(el);
+  }
+}
+
+/* ---------- render ---------- */
+function applyTheme(){
+  var root = document.documentElement;
+  if (state.theme === 'light' || state.theme === 'dark') root.setAttribute('data-theme', state.theme);
+  else if (originalTheme) root.setAttribute('data-theme', originalTheme);
+  else root.removeAttribute('data-theme');
+}
+function render(){
+  renderTabs();
+  var v = $('view');
+  curveSim = null;
+  if (ui.tab === 'debts') v.innerHTML = viewDebts();
+  else if (ui.tab === 'budget') v.innerHTML = viewBudget();
+  else if (ui.tab === 'plan') v.innerHTML = viewPlan();
+  else if (ui.tab === 'log') v.innerHTML = viewLog();
+  else if (ui.tab === 'tools'){ v.innerHTML = viewTools(); calcTools(); }
+  else {
+    v.innerHTML = viewOverview();
+    if ($('curve')){ curveSim = simulate(state.strategy); watchCurve(); }
+  }
+}
+function softRender(){
+  setTimeout(function(){
+    var a = document.activeElement, fid = a && a.id, y = window.scrollY;
+    render();
+    try { window.scrollTo(0, y); } catch (e) {}
+    if (fid && $(fid)) $(fid).focus();
+  }, 0);
+}
+function setTab(id){
+  var ok = TABS.some(function(t){ return t.id === id; });
+  ui.tab = ok ? id : 'overview';
+  ui.showAll = false;
+  try { if (location.hash !== '#' + ui.tab) history.replaceState(null, '', '#' + ui.tab); } catch (e) {}
+  render();
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+
+/* ---------- actions ---------- */
+function arm(btn, fn){
+  if (btn.getAttribute('data-armed') === '1'){ fn(); return; }
+  btn.setAttribute('data-armed', '1');
+  var orig = btn.textContent;
+  btn.textContent = btn.classList.contains('x') ? '✓' : '再点一次确认';
+  if (btn.classList.contains('x')) btn.setAttribute('aria-label', '再点一次确认删除');
+  btn.classList.add('armed');
+  setTimeout(function(){ if (document.body.contains(btn)){ btn.setAttribute('data-armed', '0'); btn.textContent = orig; btn.classList.remove('armed'); } }, 4000);
+}
+function copyText(text, el){
+  function fallback(){ if (el){ el.focus(); el.select(); } toast('已选中，长按或按 Ctrl+C 复制'); }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ toast('已复制'); }, fallback);
+    } else fallback();
+  } catch (e){ fallback(); }
+}
+function importData(text){
+  var obj = null;
+  try { obj = JSON.parse(text); } catch (e) { obj = null; }
+  var s = normalize(obj);
+  if (!s){ showErr('bk-err', '这不是还清日的备份内容。请粘贴完整的备份（以 { 开头，以 } 结尾）。'); return; }
+  state = s; state.isExample = false; save(); applyTheme(); render(); toast('已恢复备份：' + state.debts.length + ' 笔债');
+}
+
+document.addEventListener('click', function(e){
+  var t = e.target.closest('[data-act]');
+  if (!t) return;
+  var act = t.getAttribute('data-act');
+  var id = t.getAttribute('data-id');
+  if (act === 'close-sheet-bg'){ if (e.target === t) closeSheet(); return; }
+  if (act === 'tab') return setTab(t.getAttribute('data-tab'));
+  if (act === 'add-debt') return openDebtSheet(null);
+  if (act === 'edit-debt') return openDebtSheet(id);
+  if (act === 'close-sheet') return closeSheet();
+  if (act === 'save-debt') return saveDebt(id || null);
+  if (act === 'delete-debt') return arm(t, function(){
+    state.debts = state.debts.filter(function(d){ return d.id !== id; });
+    state.customOrder = state.customOrder.filter(function(x){ return x !== id; });
+    save(); closeSheet(); render(); toast('已删除');
+  });
+  if (act === 'clear-example'){ state = emptyState(); save(); applyTheme(); render(); toast('示例已清空，开始填你自己的吧'); openDebtSheet(null); return; }
+  if (act === 'load-example'){ var th = state.theme; state = exampleState(); state.theme = th; save(); setTab('overview'); toast('已载入示例'); return; }
+  if (act === 'clear-all') return arm(t, function(){ var th = state.theme; state = emptyState(); state.theme = th; save(); setTab('overview'); toast('已清空'); });
+  if (act === 'strategy'){
+    var sv = t.getAttribute('data-s');
+    if (sv === 'custom' && (!state.customOrder || !state.customOrder.length)) state.customOrder = orderFor(state.strategy).map(function(d){ return d.id; });
+    state.strategy = sv; save(); render(); return;
+  }
+  if (act === 'move'){
+    var ord = orderFor('custom').map(function(d){ return d.id; });
+    var i = ord.indexOf(id), j = i + (+t.getAttribute('data-dir'));
+    if (i < 0 || j < 0 || j >= ord.length) return;
+    var tmp = ord[i]; ord[i] = ord[j]; ord[j] = tmp;
+    state.customOrder = ord; save(); render(); return;
+  }
+  if (act === 'extra-step'){
+    state.extra = Math.max(0, num(state.extra) + (+t.getAttribute('data-step')));
+    save(); render(); return;
+  }
+  if (act === 'show-all'){ ui.showAll = true; render(); return; }
+  if (act === 'show-spends'){ ui.showAllSpends = true; render(); return; }
+  if (act === 'goto'){ var tg = $(t.getAttribute('data-to')); if (tg) tg.scrollIntoView({behavior:'smooth', block:'start'}); return; }
+  if (act === 'quick-spend'){ setTab('budget'); var qa = $('sp-amt'); if (qa){ qa.scrollIntoView({block:'center'}); qa.focus(); } return; }
+  if (act === 'add-item'){
+    var coll = t.getAttribute('data-coll'), nid = uid();
+    if (coll === 'incomes') state.incomes.push({id:nid, name:'', amount:''});
+    else state.cats.push({id:nid, name:'', kind:'daily', budget:''});
+    save(); render();
+    var nf = $((coll === 'incomes' ? 'in-n-' : 'ct-n-') + nid);
+    if (nf) nf.focus();
+    return;
+  }
+  if (act === 'del-item'){
+    var dc = t.getAttribute('data-coll');
+    return arm(t, function(){ state[dc] = state[dc].filter(function(x){ return x.id !== id; }); save(); render(); toast('已删除'); });
+  }
+  if (act === 'add-spend'){
+    var sc = $('sp-cat').value, sa = r2(num($('sp-amt').value));
+    if (sa <= 0){ showErr('sp-err', '填一下花了多少。'); $('sp-amt').focus(); return; }
+    var cc = catById(sc);
+    state.spends.unshift({id:uid(), date:$('sp-date').value || todayStr(), catId:sc, catName:cc ? cc.name : '', amount:sa, note:$('sp-note').value.trim()});
+    state.spends.sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+    ui.spendCat = sc;
+    save(); render();
+    var dsn = dailyStatus();
+    if (cc && cc.kind === 'daily' && dsn.budget > 0) toast(dsn.left >= 0 ? '记下了。日常开支这个月还能花 ' + money(dsn.left, 0) + '，每天约 ' + money(dsn.perDay, 0) : '记下了。日常开支这个月已经超了 ' + money(-dsn.left, 0));
+    else toast('记下了：' + (cc ? cc.name : '') + ' ' + money(sa));
+    var na = $('sp-amt'); if (na) na.focus();
+    return;
+  }
+  if (act === 'del-spend') return arm(t, function(){ state.spends = state.spends.filter(function(x){ return x.id !== id; }); save(); render(); toast('已删除'); });
+  if (act === 'add-snow'){
+    var amt = r2(num($('sf-amt').value));
+    if (amt <= 0){ $('sf-amt').focus(); toast('先填一下多还多少'); return; }
+    state.snowflakes.push({id:uid(), ym:$('sf-ym').value, amount:amt, note:$('sf-note').value.trim()});
+    save(); render(); toast('已加上'); return;
+  }
+  if (act === 'del-snow'){ state.snowflakes = state.snowflakes.filter(function(s){ return s.id !== id; }); save(); render(); return; }
+  if (act === 'log-for'){ ui.logPrefill = {id:id, amt:t.getAttribute('data-amt')}; setTab('log'); var a = $('lg-amt'); if (a) a.focus(); return; }
+  if (act === 'save-log'){
+    var did = $('lg-debt').value, d = debtById(did), la = r2(num($('lg-amt').value));
+    if (!d) return;
+    if (la <= 0){ showErr('lg-err', '填一下这次还了多少。'); return; }
+    var date = $('lg-date').value || todayStr();
+    var before = d.balance;
+    d.balance = r2(Math.max(0, d.balance - la));
+    state.log.unshift({id:uid(), date:date, debtId:d.id, debtName:d.name, amount:la, note:$('lg-note').value.trim(), before:before});
+    state.log.sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+    ui.logPrefill = null;
+    var clearedNow = before > 0.005 && d.balance <= 0.005;
+    if (clearedNow) d.clearedAt = date;
+    save(); render();
+    if (clearedNow) toast('清掉一笔！「' + d.name + '」还清了，还剩 ' + activeDebts().length + ' 笔');
+    else toast('记下了，「' + d.name + '」还欠 ' + money(d.balance));
+    return;
+  }
+  if (act === 'del-log') return arm(t, function(){
+    var l = null;
+    state.log = state.log.filter(function(x){ if (x.id === id){ l = x; return false; } return true; });
+    if (l){ var dd = debtById(l.debtId); if (dd){ dd.balance = r2(dd.balance + num(l.amount)); if (dd.balance > dd.start) dd.start = dd.balance; if (dd.balance > 0.005) dd.clearedAt = ''; } }
+    save(); render(); toast('已撤销，欠款已加回');
+  });
+  if (act === 'copy-backup') return copyText(JSON.stringify(state, null, 2), $('bk-out'));
+  if (act === 'download-backup'){
+    try {
+      var blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+      var url = URL.createObjectURL(blob);
+      var a2 = document.createElement('a');
+      a2.href = url; a2.download = '还清日备份-' + todayStr() + '.json';
+      document.body.appendChild(a2); a2.click(); a2.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+      toast('如果没有开始下载，用「复制备份」');
+    } catch (err){ toast('下载不了，用「复制备份」'); }
+    return;
+  }
+  if (act === 'import-backup') return importData($('bk-in').value);
+});
+
+document.addEventListener('change', function(e){
+  var t = e.target;
+  if (t.id === 'bk-file' && t.files && t.files[0]){
+    var fr = new FileReader();
+    fr.onload = function(){ importData(String(fr.result || '')); };
+    fr.readAsText(t.files[0]);
+    return;
+  }
+  var coll = t.getAttribute && t.getAttribute('data-coll');
+  var field = t.getAttribute && t.getAttribute('data-field');
+  if (coll && field && state[coll]){
+    var item = null, iid = t.getAttribute('data-id');
+    state[coll].forEach(function(x){ if (x.id === iid) item = x; });
+    if (item){
+      if (field === 'amount' || field === 'budget') item[field] = t.value === '' ? '' : Math.max(0, r2(num(t.value)));
+      else if (field === 'kind') item.kind = t.value === 'daily' ? 'daily' : 'fixed';
+      else item[field] = t.value.trim();
+      save(); softRender();
+    }
+    return;
+  }
+  var key = t.getAttribute && t.getAttribute('data-bind');
+  if (!key) return;
+  if (key === 'extra') state.extra = Math.max(0, r2(num(t.value)));
+  else if (key === 'startYM') state.startYM = t.value;
+  else if (key === 'theme'){ state.theme = t.value; applyTheme(); }
+  save(); render();
+});
+document.addEventListener('input', function(e){
+  var t = e.target;
+  if (t.getAttribute('data-calc')) calcTools();
+  if (t.getAttribute('data-rate')) rateHint();
+});
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape' && ui.sheet) closeSheet();
+  if (e.key === 'Enter' && ui.sheet && e.target.tagName === 'INPUT'){ var b = document.querySelector('[data-act="save-debt"]'); if (b){ e.preventDefault(); b.click(); } }
+});
+window.addEventListener('hashchange', function(){ var h = (location.hash || '').slice(1); if (h && h !== ui.tab) setTab(h); });
+
+applyTheme();
+var h0 = (location.hash || '').slice(1);
+ui.tab = TABS.some(function(t){ return t.id === h0; }) ? h0 : 'overview';
+render();
+save();
+
+window.__hqr = {simulate:simulate, getState:function(){ return state; }, setState:function(s){ state = normalize(s); render(); }};
+})();
+</script>
+</body>
+</html>
